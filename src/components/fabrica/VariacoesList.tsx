@@ -6,14 +6,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import ImageUpload from './ImageUpload';
 
 interface VariacoesListProps {
   produtoId: string;
+  fabricaId: string;
 }
 
-const VariacoesList = ({ produtoId }: VariacoesListProps) => {
+const VariacoesList = ({ produtoId, fabricaId }: VariacoesListProps) => {
   const [variacoes, setVariacoes] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [images, setImages] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     sku: '',
     preco_sugerido: '',
@@ -53,6 +56,7 @@ const VariacoesList = ({ produtoId }: VariacoesListProps) => {
           sku: formData.sku,
           preco_sugerido: formData.preco_sugerido ? parseFloat(formData.preco_sugerido) : null,
           estoque: formData.estoque ? parseInt(formData.estoque) : 0,
+          imagens: images,
           medidas: {
             largura: formData.largura,
             altura: formData.altura,
@@ -75,6 +79,7 @@ const VariacoesList = ({ produtoId }: VariacoesListProps) => {
         altura: '',
         profundidade: '',
       });
+      setImages([]);
       setShowForm(false);
       fetchVariacoes();
     } catch (error: any) {
@@ -183,9 +188,22 @@ const VariacoesList = ({ produtoId }: VariacoesListProps) => {
               </div>
             </div>
 
+            <div className="space-y-2">
+              <Label>Imagens da Variação</Label>
+              <ImageUpload
+                fabricaId={fabricaId}
+                images={images}
+                onImagesChange={setImages}
+                maxImages={5}
+              />
+            </div>
+
             <div className="flex gap-2">
               <Button type="submit">Adicionar Variação</Button>
-              <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
+              <Button type="button" variant="outline" onClick={() => {
+                setShowForm(false);
+                setImages([]);
+              }}>
                 Cancelar
               </Button>
             </div>
@@ -199,27 +217,42 @@ const VariacoesList = ({ produtoId }: VariacoesListProps) => {
         ) : (
           <div className="space-y-2">
             {variacoes.map((variacao) => (
-              <div key={variacao.id} className="flex justify-between items-center border p-3 rounded">
-                <div>
-                  <p className="font-medium">{variacao.sku || 'Sem SKU'}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {variacao.medidas?.largura && `${variacao.medidas.largura}cm`}
-                    {variacao.medidas?.altura && ` x ${variacao.medidas.altura}cm`}
-                    {variacao.medidas?.profundidade && ` x ${variacao.medidas.profundidade}cm`}
-                  </p>
-                  {variacao.preco_sugerido && (
-                    <p className="text-sm">
-                      Preço: R$ {parseFloat(variacao.preco_sugerido).toFixed(2)}
+              <div key={variacao.id} className="border p-3 rounded space-y-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-medium">{variacao.sku || 'Sem SKU'}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {variacao.medidas?.largura && `${variacao.medidas.largura}cm`}
+                      {variacao.medidas?.altura && ` x ${variacao.medidas.altura}cm`}
+                      {variacao.medidas?.profundidade && ` x ${variacao.medidas.profundidade}cm`}
                     </p>
-                  )}
+                    {variacao.preco_sugerido && (
+                      <p className="text-sm">
+                        Preço: R$ {parseFloat(variacao.preco_sugerido).toFixed(2)}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDelete(variacao.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDelete(variacao.id)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                
+                {variacao.imagens && variacao.imagens.length > 0 && (
+                  <div className="flex gap-2 overflow-x-auto">
+                    {variacao.imagens.map((img: string, idx: number) => (
+                      <img
+                        key={idx}
+                        src={img}
+                        alt={`Variação ${idx + 1}`}
+                        className="w-16 h-16 object-cover rounded border"
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>

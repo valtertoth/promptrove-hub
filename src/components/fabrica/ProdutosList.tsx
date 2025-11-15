@@ -103,43 +103,64 @@ const ProdutosList = ({ fabricaId }: ProdutosListProps) => {
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {produtos.map((produto) => (
-            <Card key={produto.id} className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="font-semibold text-lg">{produto.nome}</h3>
-                  {produto.tipo_produto && (
-                    <p className="text-sm text-muted-foreground">{produto.tipo_produto}</p>
+            <Card key={produto.id} className="overflow-hidden">
+              {produto.imagens && produto.imagens.length > 0 ? (
+                <div className="relative h-48 overflow-hidden">
+                  <img
+                    src={produto.imagens[0]}
+                    alt={produto.nome}
+                    className="w-full h-full object-cover"
+                  />
+                  {produto.imagens.length > 1 && (
+                    <div className="absolute bottom-2 right-2 bg-background/80 px-2 py-1 rounded text-xs">
+                      +{produto.imagens.length - 1} fotos
+                    </div>
                   )}
                 </div>
-                <div className={`px-2 py-1 rounded text-xs ${produto.ativo ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                  {produto.ativo ? 'Ativo' : 'Inativo'}
+              ) : (
+                <div className="h-48 bg-muted flex items-center justify-center">
+                  <p className="text-muted-foreground text-sm">Sem imagem</p>
                 </div>
-              </div>
-              
-              {produto.descricao && (
-                <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                  {produto.descricao}
-                </p>
               )}
+              
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 className="font-semibold text-lg">{produto.nome}</h3>
+                    {produto.tipo_produto && (
+                      <p className="text-sm text-muted-foreground">{produto.tipo_produto}</p>
+                    )}
+                  </div>
+                  <div className={`px-2 py-1 rounded text-xs ${produto.ativo ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                    {produto.ativo ? 'Ativo' : 'Inativo'}
+                  </div>
+                </div>
+                
+                {produto.descricao && (
+                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                    {produto.descricao}
+                  </p>
+                )}
 
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setEditingProduto(produto);
-                    setShowForm(true);
-                  }}
-                >
-                  <Edit className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDelete(produto.id)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditingProduto(produto);
+                      setShowForm(true);
+                    }}
+                  >
+                    <Edit className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDelete(produto.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             </Card>
           ))}

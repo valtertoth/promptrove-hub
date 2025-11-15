@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft } from 'lucide-react';
 import VariacoesList from './VariacoesList';
+import ImageUpload from './ImageUpload';
 
 interface ProdutoFormProps {
   fabricaId: string;
@@ -19,6 +20,7 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [produtoId, setProdutoId] = useState(produto?.id || null);
+  const [images, setImages] = useState<string[]>(produto?.imagens || []);
   const [formData, setFormData] = useState({
     nome: produto?.nome || '',
     descricao: produto?.descricao || '',
@@ -36,6 +38,7 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
           .from('produtos')
           .update({
             ...formData,
+            imagens: images,
             tempo_fabricacao_dias: formData.tempo_fabricacao_dias ? parseInt(formData.tempo_fabricacao_dias) : null,
           })
           .eq('id', produto.id);
@@ -52,6 +55,7 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
           .insert({
             ...formData,
             fabrica_id: fabricaId,
+            imagens: images,
             tempo_fabricacao_dias: formData.tempo_fabricacao_dias ? parseInt(formData.tempo_fabricacao_dias) : null,
           })
           .select()
@@ -123,25 +127,35 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="descricao">Descrição</Label>
-              <Textarea
-                id="descricao"
-                value={formData.descricao}
-                onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
-                rows={4}
-                placeholder="Descreva seu produto..."
-              />
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="descricao">Descrição</Label>
+                <Textarea
+                  id="descricao"
+                  value={formData.descricao}
+                  onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
+                  rows={4}
+                  placeholder="Descreva seu produto..."
+                />
+              </div>
 
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Salvando...' : produto ? 'Atualizar Produto' : 'Criar Produto'}
-            </Button>
-          </form>
+              <div className="space-y-2">
+                <Label>Imagens do Produto</Label>
+                <ImageUpload
+                  fabricaId={fabricaId}
+                  images={images}
+                  onImagesChange={setImages}
+                  maxImages={10}
+                />
+              </div>
+
+              <Button type="submit" disabled={loading}>
+                {loading ? 'Salvando...' : produto ? 'Atualizar Produto' : 'Criar Produto'}
+              </Button>
+            </form>
         </CardContent>
       </Card>
 
-      {produtoId && <VariacoesList produtoId={produtoId} />}
+      {produtoId && <VariacoesList produtoId={produtoId} fabricaId={fabricaId} />}
     </div>
   );
 };
