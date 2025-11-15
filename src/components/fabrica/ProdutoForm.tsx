@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft } from 'lucide-react';
 import VariacoesList from './VariacoesList';
@@ -21,12 +22,38 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
   const [loading, setLoading] = useState(false);
   const [produtoId, setProdutoId] = useState(produto?.id || null);
   const [images, setImages] = useState<string[]>(produto?.imagens || []);
+  const [categorias, setCategorias] = useState<string[]>(produto?.categorias || []);
+  const [tags, setTags] = useState<string[]>(produto?.tags || []);
+  const [newCategoria, setNewCategoria] = useState('');
+  const [newTag, setNewTag] = useState('');
   const [formData, setFormData] = useState({
     nome: produto?.nome || '',
     descricao: produto?.descricao || '',
     tipo_produto: produto?.tipo_produto || '',
     tempo_fabricacao_dias: produto?.tempo_fabricacao_dias || '',
   });
+
+  const addCategoria = () => {
+    if (newCategoria && !categorias.includes(newCategoria)) {
+      setCategorias([...categorias, newCategoria]);
+      setNewCategoria('');
+    }
+  };
+
+  const removeCategoria = (cat: string) => {
+    setCategorias(categorias.filter(c => c !== cat));
+  };
+
+  const addTag = () => {
+    if (newTag && !tags.includes(newTag)) {
+      setTags([...tags, newTag]);
+      setNewTag('');
+    }
+  };
+
+  const removeTag = (tag: string) => {
+    setTags(tags.filter(t => t !== tag));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,6 +66,8 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
           .update({
             ...formData,
             imagens: images,
+            categorias: categorias,
+            tags: tags,
             tempo_fabricacao_dias: formData.tempo_fabricacao_dias ? parseInt(formData.tempo_fabricacao_dias) : null,
           })
           .eq('id', produto.id);
@@ -56,6 +85,8 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
             ...formData,
             fabrica_id: fabricaId,
             imagens: images,
+            categorias: categorias,
+            tags: tags,
             tempo_fabricacao_dias: formData.tempo_fabricacao_dias ? parseInt(formData.tempo_fabricacao_dias) : null,
           })
           .select()
@@ -136,6 +167,54 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
                   rows={4}
                   placeholder="Descreva seu produto..."
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Categorias</Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Ex: Mobiliário, Decoração..."
+                    value={newCategoria}
+                    onChange={(e) => setNewCategoria(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addCategoria())}
+                  />
+                  <Button type="button" onClick={addCategoria} variant="outline">
+                    Adicionar
+                  </Button>
+                </div>
+                {categorias.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {categorias.map((cat) => (
+                      <Badge key={cat} variant="secondary" className="cursor-pointer" onClick={() => removeCategoria(cat)}>
+                        {cat} ×
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Tags</Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Ex: Sustentável, Artesanal..."
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
+                  />
+                  <Button type="button" onClick={addTag} variant="outline">
+                    Adicionar
+                  </Button>
+                </div>
+                {tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {tags.map((tag) => (
+                      <Badge key={tag} variant="outline" className="cursor-pointer" onClick={() => removeTag(tag)}>
+                        {tag} ×
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">

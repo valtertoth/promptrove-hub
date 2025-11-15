@@ -29,6 +29,14 @@ const Index = () => {
             <Button 
               size="lg" 
               className="btn-premium bg-primary hover:bg-primary-hover text-lg"
+              onClick={() => navigate('/catalogo')}
+            >
+              Ver Catálogo
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+            <Button 
+              size="lg" 
+              className="btn-premium bg-primary hover:bg-primary-hover text-lg"
               onClick={() => navigate('/auth')}
             >
               Começar Agora
