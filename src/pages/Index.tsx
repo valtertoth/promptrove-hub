@@ -39,6 +39,30 @@ const Index = () => {
       <div className="absolute top-20 left-10 w-72 h-72 bg-primary/10 rounded-full blur-3xl animate-float" />
       <div className="absolute bottom-20 right-10 w-96 h-96 bg-accent/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }} />
       
+      {/* Admin Access - Se usuário é admin */}
+      {user && (
+        <div className="absolute top-4 right-4 z-50">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={async () => {
+              const { data } = await supabase
+                .from('user_roles')
+                .select('role')
+                .eq('user_id', user.id)
+                .eq('role', 'admin')
+                .maybeSingle();
+              
+              if (data) {
+                navigate('/dashboard');
+              }
+            }}
+          >
+            Admin
+          </Button>
+        </div>
+      )}
+      
       {/* Hero Section */}
       <div className="container mx-auto px-4 py-32 relative z-10">
         <div className="text-center max-w-5xl mx-auto mb-24 animate-fade-in-up">

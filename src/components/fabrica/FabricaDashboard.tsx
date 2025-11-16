@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Package, Users, Settings, Plus } from 'lucide-react';
+import NotificacoesPopover from '@/components/shared/NotificacoesPopover';
 import FabricaProfile from './FabricaProfile';
 import ProdutosList from './ProdutosList';
 import EspecificadoresList from './EspecificadoresList';
@@ -87,9 +88,12 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
             <h1 className="text-2xl font-bold">{fabrica.nome}</h1>
             <p className="text-sm text-muted-foreground">{fabrica.email}</p>
           </div>
-          <Button onClick={handleSignOut} variant="outline">
-            Sair
-          </Button>
+          <div className="flex gap-2 items-center">
+            <NotificacoesPopover userId={userId} />
+            <Button onClick={handleSignOut} variant="outline">
+              Sair
+            </Button>
+          </div>
         </div>
       </header>
 

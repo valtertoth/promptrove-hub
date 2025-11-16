@@ -1,17 +1,39 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import NotificacoesPopover from "@/components/shared/NotificacoesPopover";
 import SugestoesManager from "./SugestoesManager";
 import { Settings, Lightbulb } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 export default function AdminDashboard() {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-subtle p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-4xl font-bold mb-2">Painel Administrativo</h1>
-          <p className="text-muted-foreground">Gerencie sugestões e configurações da plataforma</p>
+      <header className="border-b bg-card mb-6 -m-6 p-6">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold">Painel Administrativo</h1>
+            <p className="text-muted-foreground">Gerencie sugestões e configurações da plataforma</p>
+          </div>
+          <div className="flex gap-2 items-center">
+            {user && <NotificacoesPopover userId={user.id} />}
+            <Button onClick={handleSignOut} variant="outline">
+              Sair
+            </Button>
+          </div>
         </div>
+      </header>
 
+      <div className="max-w-7xl mx-auto">
         <Tabs defaultValue="sugestoes">
           <TabsList>
             <TabsTrigger value="sugestoes">
