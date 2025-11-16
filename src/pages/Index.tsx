@@ -8,12 +8,6 @@ const Index = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!loading && user) {
-      navigate('/dashboard');
-    }
-  }, [user, loading, navigate]);
-
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
       {/* Floating background elements */}
@@ -56,9 +50,9 @@ const Index = () => {
               size="lg" 
               variant="outline"
               className="btn-premium text-lg px-8 py-6 h-auto rounded-2xl border-2 hover:bg-accent/10 hover:border-accent transition-all duration-300"
-              onClick={() => navigate('/auth')}
+              onClick={() => navigate(user ? '/dashboard' : '/auth')}
             >
-              Começar Gratuitamente
+              {user ? 'Ir para Dashboard' : 'Começar Gratuitamente'}
             </Button>
           </div>
         </div>
