@@ -452,6 +452,60 @@ export type Database = {
         }
         Relationships: []
       }
+      sugestoes_campo_produto: {
+        Row: {
+          created_at: string | null
+          descricao: string | null
+          fabrica_id: string
+          id: string
+          mensagem_admin: string | null
+          nome_campo: string
+          status: string | null
+          tipo_produto_id: string
+          updated_at: string | null
+          valor_sugerido: string
+        }
+        Insert: {
+          created_at?: string | null
+          descricao?: string | null
+          fabrica_id: string
+          id?: string
+          mensagem_admin?: string | null
+          nome_campo: string
+          status?: string | null
+          tipo_produto_id: string
+          updated_at?: string | null
+          valor_sugerido: string
+        }
+        Update: {
+          created_at?: string | null
+          descricao?: string | null
+          fabrica_id?: string
+          id?: string
+          mensagem_admin?: string | null
+          nome_campo?: string
+          status?: string | null
+          tipo_produto_id?: string
+          updated_at?: string | null
+          valor_sugerido?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sugestoes_campo_produto_fabrica_id_fkey"
+            columns: ["fabrica_id"]
+            isOneToOne: false
+            referencedRelation: "fabrica"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sugestoes_campo_produto_tipo_produto_id_fkey"
+            columns: ["tipo_produto_id"]
+            isOneToOne: false
+            referencedRelation: "tipos_produto"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sugestoes_tipo_produto: {
         Row: {
           created_at: string | null
