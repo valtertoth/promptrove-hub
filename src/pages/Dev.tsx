@@ -158,11 +158,18 @@ const Dev = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {currentRole && (
-                <Badge className="text-lg px-4 py-2">
-                  {currentRole.toUpperCase()}
-                </Badge>
-              )}
+              <div className="space-y-3">
+                {currentRole && (
+                  <Badge className="text-lg px-4 py-2">
+                    {currentRole.toUpperCase()}
+                  </Badge>
+                )}
+                <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+                  <p className="text-sm text-muted-foreground">
+                    💡 <strong>Dica:</strong> Use o botão flutuante no canto inferior direito para trocar rapidamente entre perfis em qualquer página!
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}

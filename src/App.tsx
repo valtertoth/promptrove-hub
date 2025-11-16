@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import Catalogo from "./pages/Catalogo";
 import Dev from "./pages/Dev";
 import NotFound from "./pages/NotFound";
+import DevRoleSwitcher from "./components/dev/DevRoleSwitcher";
 
 const queryClient = new QueryClient();
 
@@ -16,6 +17,7 @@ const App = () => (
     <Toaster />
     <Sonner />
     <BrowserRouter>
+      <DevRoleSwitcher />
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/auth" element={<Auth />} />
