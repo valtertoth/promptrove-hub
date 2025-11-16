@@ -7,6 +7,17 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { z } from 'zod';
+
+const authSchema = z.object({
+  email: z.string().trim().email({ message: "Email inválido" }).max(255, { message: "Email muito longo" }),
+  password: z.string()
+    .min(8, { message: "Senha deve ter no mínimo 8 caracteres" })
+    .max(100, { message: "Senha muito longa" })
+    .regex(/[A-Z]/, { message: "Senha deve conter letra maiúscula" })
+    .regex(/[0-9]/, { message: "Senha deve conter número" }),
+  nome: z.string().trim().min(2, { message: "Nome muito curto" }).max(100, { message: "Nome muito longo" })
+});
 
 const Auth = () => {
   const [email, setEmail] = useState('');
@@ -21,13 +32,26 @@ const Auth = () => {
     setLoading(true);
 
     try {
+      const validation = authSchema.safeParse({ email, password, nome });
+      
+      if (!validation.success) {
+        const firstError = validation.error.errors[0];
+        toast({
+          variant: 'destructive',
+          title: 'Dados inválidos',
+          description: firstError.message,
+        });
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase.auth.signUp({
-        email,
-        password,
+        email: validation.data.email,
+        password: validation.data.password,
         options: {
           emailRedirectTo: `${window.location.origin}/`,
           data: {
-            nome: nome
+            nome: validation.data.nome
           }
         }
       });
@@ -44,7 +68,7 @@ const Auth = () => {
       toast({
         variant: 'destructive',
         title: 'Erro no cadastro',
-        description: error.message,
+        description: 'Ocorreu um erro ao processar sua solicitação.',
       });
     } finally {
       setLoading(false);
@@ -56,9 +80,24 @@ const Auth = () => {
     setLoading(true);
 
     try {
+      const validation = z.object({
+        email: z.string().trim().email().max(255),
+        password: z.string().min(1).max(100)
+      }).safeParse({ email, password });
+      
+      if (!validation.success) {
+        toast({
+          variant: 'destructive',
+          title: 'Dados inválidos',
+          description: 'Verifique seu email e senha.',
+        });
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: validation.data.email,
+        password: validation.data.password,
       });
 
       if (error) throw error;
@@ -73,7 +112,7 @@ const Auth = () => {
       toast({
         variant: 'destructive',
         title: 'Erro no login',
-        description: error.message,
+        description: 'Email ou senha incorretos.',
       });
     } finally {
       setLoading(false);
