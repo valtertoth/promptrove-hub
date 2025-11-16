@@ -43,10 +43,10 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
   const [sugestaoTipo, setSugestaoTipo] = useState('');
   const [descricaoSugestao, setDescricaoSugestao] = useState('');
   
-  // Estados para sugestão de ambiente
+  // Estados para sugestões de campos
   const [showOutroAmbiente, setShowOutroAmbiente] = useState(false);
   const [sugestaoAmbiente, setSugestaoAmbiente] = useState('');
-  const [descricaoSugestaoAmbiente, setDescricaoSugestaoAmbiente] = useState('');
+  const [tipoSelecionadoId, setTipoSelecionadoId] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     tipo_produto: produto?.tipo_produto || '',
@@ -85,9 +85,12 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
   const handleTipoChange = (value: string) => {
     if (value === 'outro') {
       setShowOutroTipo(true);
+      setTipoSelecionadoId(null);
       setFormData({ ...formData, tipo_produto: '' });
     } else {
       setShowOutroTipo(false);
+      const tipoSelecionado = tiposProduto.find(t => t.nome === value);
+      setTipoSelecionadoId(tipoSelecionado?.id || null);
       setFormData({ ...formData, tipo_produto: value });
     }
   };
@@ -132,7 +135,7 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
   };
 
   const handleSubmitSugestaoAmbiente = async () => {
-    if (!sugestaoAmbiente.trim()) {
+    if (!sugestaoAmbiente.trim() || !tipoSelecionadoId) {
       toast({
         title: 'Campo obrigatório',
         description: 'Por favor, informe o ambiente que deseja sugerir.',
@@ -141,33 +144,27 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
       return;
     }
 
-    // Encontrar o tipo de produto atual
-    const tipoAtual = tiposProduto.find(t => t.nome === formData.tipo_produto);
-    if (!tipoAtual) return;
-
     try {
       const { error } = await supabase
         .from('sugestoes_campo_produto')
         .insert({
-          tipo_produto_id: tipoAtual.id,
-          fabrica_id: fabricaId,
           nome_campo: 'ambiente',
           valor_sugerido: sugestaoAmbiente,
-          descricao: descricaoSugestaoAmbiente,
+          fabrica_id: fabricaId,
+          tipo_produto_id: tipoSelecionadoId,
         });
 
       if (error) throw error;
 
       toast({
         title: 'Sugestão enviada',
-        description: 'Sua sugestão de ambiente será analisada pela equipe.',
+        description: 'Sua sugestão de ambiente será analisada. Você receberá uma notificação quando for aprovada.',
       });
 
       setSugestaoAmbiente('');
-      setDescricaoSugestaoAmbiente('');
       setShowOutroAmbiente(false);
     } catch (error: any) {
-      console.error('Error submitting ambiente suggestion:', error);
+      console.error('Error submitting suggestion:', error);
       toast({
         title: 'Erro',
         description: 'Não foi possível enviar a sugestão. Tente novamente.',
@@ -177,6 +174,11 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
   };
 
   const toggleAmbiente = (ambienteNome: string) => {
+    if (ambienteNome === 'outro') {
+      setShowOutroAmbiente(true);
+      return;
+    }
+    
     if (ambientesSelecionados.includes(ambienteNome)) {
       setAmbientesSelecionados(ambientesSelecionados.filter(a => a !== ambienteNome));
     } else {
@@ -385,17 +387,7 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
                             id="sugestao-ambiente"
                             value={sugestaoAmbiente}
                             onChange={(e) => setSugestaoAmbiente(e.target.value)}
-                            placeholder="Ex: Home Office, Lavanderia..."
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="descricao-sugestao-ambiente">Descrição (opcional)</Label>
-                          <Textarea
-                            id="descricao-sugestao-ambiente"
-                            value={descricaoSugestaoAmbiente}
-                            onChange={(e) => setDescricaoSugestaoAmbiente(e.target.value)}
-                            placeholder="Descreva brevemente este ambiente..."
-                            rows={2}
+                            placeholder="Ex: Home Office, Área Gourmet..."
                           />
                         </div>
                         <div className="flex gap-2">
