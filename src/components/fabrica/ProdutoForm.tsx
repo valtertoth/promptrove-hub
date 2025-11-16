@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft } from 'lucide-react';
 import VariacoesList from './VariacoesList';
 import ImageUpload from './ImageUpload';
+import FornecedorSelector from './FornecedorSelector';
 
 interface ProdutoFormProps {
   fabricaId: string;
@@ -234,7 +235,12 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
         </CardContent>
       </Card>
 
-      {produtoId && <VariacoesList produtoId={produtoId} fabricaId={fabricaId} />}
+      {produtoId && (
+        <>
+          <FornecedorSelector produtoId={produtoId} />
+          <VariacoesList produtoId={produtoId} fabricaId={fabricaId} />
+        </>
+      )}
     </div>
   );
 };
