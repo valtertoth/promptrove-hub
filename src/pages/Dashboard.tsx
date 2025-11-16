@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import FabricaDashboard from "@/components/fabrica/FabricaDashboard";
 import EspecificadorDashboard from "@/components/especificador/EspecificadorDashboard";
 import FornecedorDashboard from "@/components/fornecedor/FornecedorDashboard";
+import AdminDashboard from "@/components/admin/AdminDashboard";
 import RoleSelection from "@/components/dashboard/RoleSelection";
 
 const Dashboard = () => {
@@ -56,6 +57,10 @@ const Dashboard = () => {
 
   if (!userRole) {
     return <RoleSelection userId={user?.id || ""} />;
+  }
+
+  if (userRole === "admin") {
+    return <AdminDashboard />;
   }
 
   if (userRole === "fabrica") {
