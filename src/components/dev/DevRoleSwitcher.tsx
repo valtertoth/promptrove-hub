@@ -48,14 +48,18 @@ const DevRoleSwitcher = () => {
 
     setLoading(true);
     try {
-      const { error } = await supabase
+      // 1) Remove todas as roles do usuário (modo dev: garantimos 1 única role ativa)
+      const { error: delError } = await supabase
         .from('user_roles')
-        .upsert(
-          { user_id: user.id, role },
-          { onConflict: 'user_id,role', ignoreDuplicates: false }
-        );
+        .delete()
+        .eq('user_id', user.id);
+      if (delError) throw delError;
 
-      if (error) throw error;
+      // 2) Insere a role selecionada
+      const { error: insError } = await supabase
+        .from('user_roles')
+        .insert({ user_id: user.id, role });
+      if (insError) throw insError;
 
       setCurrentRole(role);
       toast({
@@ -66,7 +70,7 @@ const DevRoleSwitcher = () => {
       setTimeout(() => {
         navigate('/dashboard');
         window.location.reload();
-      }, 500);
+      }, 400);
     } catch (error: any) {
       toast({
         title: 'Erro ao trocar perfil',
