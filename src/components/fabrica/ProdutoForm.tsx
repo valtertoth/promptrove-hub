@@ -222,63 +222,139 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="nome">Nome do Produto *</Label>
-                <Input
-                  id="nome"
-                  value={formData.nome}
-                  onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="tipo_produto">Tipo de Produto</Label>
-                <Input
-                  id="tipo_produto"
-                  value={formData.tipo_produto}
-                  onChange={(e) => setFormData({ ...formData, tipo_produto: e.target.value })}
-                  placeholder="Ex: Cadeira, Mesa, Sofá"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="tempo_fabricacao_dias">Tempo de Fabricação (dias)</Label>
-                <Input
-                  id="tempo_fabricacao_dias"
-                  type="number"
-                  value={formData.tempo_fabricacao_dias}
-                  onChange={(e) => setFormData({ ...formData, tempo_fabricacao_dias: e.target.value })}
-                />
-              </div>
+            {/* TIPO DE PRODUTO - PRIMEIRO CAMPO */}
+            <div className="space-y-2">
+              <Label htmlFor="tipo">Tipo de Produto *</Label>
+              <Select value={formData.tipo_produto || undefined} onValueChange={handleTipoChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o tipo de produto" />
+                </SelectTrigger>
+                <SelectContent>
+                  {tiposProduto.map((tipo) => (
+                    <SelectItem key={tipo.id} value={tipo.nome}>
+                      {tipo.nome}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="outro">Outro (sugerir novo tipo)</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              {showOutroTipo && (
+                <Card className="mt-4 p-4 border-primary">
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Não encontrou o tipo que procura? Sugira um novo tipo para nossa equipe avaliar.
+                    </p>
+                    <div className="space-y-2">
+                      <Label htmlFor="sugestao-tipo">Nome do Tipo *</Label>
+                      <Input
+                        id="sugestao-tipo"
+                        value={sugestaoTipo}
+                        onChange={(e) => setSugestaoTipo(e.target.value)}
+                        placeholder="Ex: Mesa Buffet, Rack Suspenso..."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="descricao-sugestao">Descrição (opcional)</Label>
+                      <Textarea
+                        id="descricao-sugestao"
+                        value={descricaoSugestao}
+                        onChange={(e) => setDescricaoSugestao(e.target.value)}
+                        placeholder="Descreva brevemente este tipo de produto..."
+                        rows={2}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button type="button" onClick={handleSubmitSugestao} className="flex-1">
+                        Enviar Sugestão
+                      </Button>
+                      <Button type="button" variant="outline" onClick={() => setShowOutroTipo(false)}>
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              )}
             </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="descricao">Descrição</Label>
-                <Textarea
-                  id="descricao"
-                  value={formData.descricao}
-                  onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
-                  rows={4}
-                  placeholder="Descreva seu produto..."
-                />
-              </div>
+            {/* Só mostra os demais campos se o tipo foi selecionado */}
+            {formData.tipo_produto && !showOutroTipo && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="nome">Nome do Produto *</Label>
+                  <Input
+                    id="nome"
+                    value={formData.nome}
+                    onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                    placeholder="Ex: Aura"
+                    required
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Escolha um nome único para este {formData.tipo_produto.toLowerCase()}
+                  </p>
+                </div>
 
-              <div className="space-y-2">
-                <Label>Imagens do Produto</Label>
-                <ImageUpload
-                  fabricaId={fabricaId}
-                  images={images}
-                  onImagesChange={setImages}
-                  maxImages={10}
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label>Ambientes</Label>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Selecione os ambientes onde este produto pode ser usado
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {ambientesDisponiveis.map((ambiente) => (
+                      <Badge
+                        key={ambiente.id}
+                        variant={ambientesSelecionados.includes(ambiente.nome) ? "default" : "outline"}
+                        className="cursor-pointer justify-center py-2 hover:bg-primary hover:text-primary-foreground transition-colors"
+                        onClick={() => toggleAmbiente(ambiente.nome)}
+                      >
+                        {ambiente.nome}
+                        {ambientesSelecionados.includes(ambiente.nome) && (
+                          <X className="w-3 h-3 ml-1" />
+                        )}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
 
-              <Button type="submit" disabled={loading}>
-                {loading ? 'Salvando...' : produto ? 'Atualizar Produto' : 'Criar Produto'}
-              </Button>
-            </form>
+                <div className="space-y-2">
+                  <Label htmlFor="tempo">Tempo de Fabricação (dias)</Label>
+                  <Input
+                    id="tempo"
+                    type="number"
+                    min="1"
+                    value={formData.tempo_fabricacao_dias}
+                    onChange={(e) => setFormData({ ...formData, tempo_fabricacao_dias: e.target.value })}
+                    placeholder="Ex: 30"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="descricao">Descrição</Label>
+                  <Textarea
+                    id="descricao"
+                    value={formData.descricao}
+                    onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
+                    placeholder="Descreva seu produto..."
+                    rows={4}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Imagens do Produto</Label>
+                  <ImageUpload
+                    fabricaId={fabricaId}
+                    images={images}
+                    onImagesChange={setImages}
+                    maxImages={10}
+                  />
+                </div>
+
+                <Button type="submit" disabled={loading} className="w-full">
+                  {loading ? 'Salvando...' : produto ? 'Atualizar Produto' : 'Criar Produto'}
+                </Button>
+              </>
+            )}
+          </form>
         </CardContent>
       </Card>
 
