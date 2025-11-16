@@ -43,6 +43,11 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
   const [sugestaoTipo, setSugestaoTipo] = useState('');
   const [descricaoSugestao, setDescricaoSugestao] = useState('');
   
+  // Estados para sugestão de ambiente
+  const [showOutroAmbiente, setShowOutroAmbiente] = useState(false);
+  const [sugestaoAmbiente, setSugestaoAmbiente] = useState('');
+  const [descricaoSugestaoAmbiente, setDescricaoSugestaoAmbiente] = useState('');
+  
   const [formData, setFormData] = useState({
     tipo_produto: produto?.tipo_produto || '',
     nome: produto?.nome || '',
@@ -118,6 +123,51 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
       setShowOutroTipo(false);
     } catch (error: any) {
       console.error('Error submitting suggestion:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível enviar a sugestão. Tente novamente.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleSubmitSugestaoAmbiente = async () => {
+    if (!sugestaoAmbiente.trim()) {
+      toast({
+        title: 'Campo obrigatório',
+        description: 'Por favor, informe o ambiente que deseja sugerir.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Encontrar o tipo de produto atual
+    const tipoAtual = tiposProduto.find(t => t.nome === formData.tipo_produto);
+    if (!tipoAtual) return;
+
+    try {
+      const { error } = await supabase
+        .from('sugestoes_campo_produto')
+        .insert({
+          tipo_produto_id: tipoAtual.id,
+          fabrica_id: fabricaId,
+          nome_campo: 'ambiente',
+          valor_sugerido: sugestaoAmbiente,
+          descricao: descricaoSugestaoAmbiente,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Sugestão enviada',
+        description: 'Sua sugestão de ambiente será analisada pela equipe.',
+      });
+
+      setSugestaoAmbiente('');
+      setDescricaoSugestaoAmbiente('');
+      setShowOutroAmbiente(false);
+    } catch (error: any) {
+      console.error('Error submitting ambiente suggestion:', error);
       toast({
         title: 'Erro',
         description: 'Não foi possível enviar a sugestão. Tente novamente.',
@@ -313,7 +363,52 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
                         )}
                       </Badge>
                     ))}
+                    <Badge
+                      variant="outline"
+                      className="cursor-pointer justify-center py-2 border-dashed hover:bg-muted transition-colors"
+                      onClick={() => setShowOutroAmbiente(true)}
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      Outro
+                    </Badge>
                   </div>
+                  
+                  {showOutroAmbiente && (
+                    <Card className="mt-4 p-4 border-primary">
+                      <div className="space-y-3">
+                        <p className="text-sm text-muted-foreground">
+                          Não encontrou o ambiente que procura? Sugira um novo para nossa equipe avaliar.
+                        </p>
+                        <div className="space-y-2">
+                          <Label htmlFor="sugestao-ambiente">Nome do Ambiente *</Label>
+                          <Input
+                            id="sugestao-ambiente"
+                            value={sugestaoAmbiente}
+                            onChange={(e) => setSugestaoAmbiente(e.target.value)}
+                            placeholder="Ex: Home Office, Lavanderia..."
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="descricao-sugestao-ambiente">Descrição (opcional)</Label>
+                          <Textarea
+                            id="descricao-sugestao-ambiente"
+                            value={descricaoSugestaoAmbiente}
+                            onChange={(e) => setDescricaoSugestaoAmbiente(e.target.value)}
+                            placeholder="Descreva brevemente este ambiente..."
+                            rows={2}
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button type="button" onClick={handleSubmitSugestaoAmbiente} className="flex-1">
+                            Enviar Sugestão
+                          </Button>
+                          <Button type="button" variant="outline" onClick={() => setShowOutroAmbiente(false)}>
+                            Cancelar
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  )}
                 </div>
 
                 <div className="space-y-2">
