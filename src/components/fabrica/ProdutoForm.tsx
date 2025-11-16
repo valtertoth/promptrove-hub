@@ -51,6 +51,7 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
   
   const [produtosExistentes, setProdutosExistentes] = useState<any[]>([]);
   const [modoNome, setModoNome] = useState<'existente' | 'novo'>(produto ? 'existente' : 'novo');
+  const [produtoSelecionadoId, setProdutoSelecionadoId] = useState<string>('');
   
   const [formData, setFormData] = useState({
     tipo_produto: produto?.tipo_produto || '',
@@ -371,13 +372,41 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
                   </div>
                   
                   {modoNome === 'existente' && produtosExistentes.length > 0 ? (
-                    <Select value={formData.nome} onValueChange={(value) => setFormData({ ...formData, nome: value })}>
+                    <Select 
+                      value={produtoSelecionadoId} 
+                      onValueChange={async (value) => {
+                        setProdutoSelecionadoId(value);
+                        // Carregar dados do produto selecionado
+                        const produtoSelecionado = produtosExistentes.find(p => p.id === value);
+                        if (produtoSelecionado) {
+                          setFormData({ ...formData, nome: produtoSelecionado.nome });
+                          // Carregar o produto completo
+                          const { data } = await supabase
+                            .from('produtos')
+                            .select('*')
+                            .eq('id', value)
+                            .single();
+                          
+                          if (data) {
+                            setProdutoId(data.id);
+                            setImages((data.imagens as string[]) || []);
+                            setAmbientesSelecionados((data.ambientes as string[]) || []);
+                            setFormData({
+                              tipo_produto: data.tipo_produto,
+                              nome: data.nome,
+                              descricao: data.descricao || '',
+                              tempo_fabricacao_dias: data.tempo_fabricacao_dias || '',
+                            });
+                          }
+                        }
+                      }}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione um produto existente" />
                       </SelectTrigger>
                       <SelectContent>
                         {produtosExistentes.map((prod) => (
-                          <SelectItem key={prod.id} value={prod.nome}>
+                          <SelectItem key={prod.id} value={prod.id}>
                             {prod.nome}
                           </SelectItem>
                         ))}
