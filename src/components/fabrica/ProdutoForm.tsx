@@ -538,24 +538,6 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
               </div>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Descrição</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <Label htmlFor="descricao">Descrição do Produto</Label>
-                <Textarea
-                  id="descricao"
-                  value={formData.descricao}
-                  onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
-                  placeholder="Descreva seu produto..."
-                  rows={4}
-                />
-              </div>
-            </CardContent>
-          </Card>
         </>
       )}
     </div>
