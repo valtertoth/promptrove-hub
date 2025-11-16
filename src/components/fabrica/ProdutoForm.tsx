@@ -49,6 +49,9 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
   const [sugestaoAmbiente, setSugestaoAmbiente] = useState('');
   const [tipoSelecionadoId, setTipoSelecionadoId] = useState<string | null>(null);
   
+  const [produtosExistentes, setProdutosExistentes] = useState<any[]>([]);
+  const [modoNome, setModoNome] = useState<'existente' | 'novo'>(produto ? 'existente' : 'novo');
+  
   const [formData, setFormData] = useState({
     tipo_produto: produto?.tipo_produto || '',
     nome: produto?.nome || '',
@@ -83,7 +86,7 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
     fetchOptions();
   }, []);
 
-  const handleTipoChange = (value: string) => {
+  const handleTipoChange = async (value: string) => {
     if (value === 'outro') {
       setShowOutroTipo(true);
       setTipoSelecionadoId(null);
@@ -93,6 +96,18 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
       const tipoSelecionado = tiposProduto.find(t => t.nome === value);
       setTipoSelecionadoId(tipoSelecionado?.id || null);
       setFormData({ ...formData, tipo_produto: value });
+      
+      // Carregar produtos existentes deste tipo
+      const { data } = await supabase
+        .from('produtos')
+        .select('id, nome')
+        .eq('fabrica_id', fabricaId)
+        .eq('tipo_produto', value)
+        .order('nome');
+      
+      if (data) {
+        setProdutosExistentes(data);
+      }
     }
   };
 
@@ -335,15 +350,53 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
               <>
                 <div className="space-y-2">
                   <Label htmlFor="nome">Nome do Produto *</Label>
-                  <Input
-                    id="nome"
-                    value={formData.nome}
-                    onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                    placeholder="Ex: Aura"
-                    required
-                  />
+                  <div className="flex gap-2 mb-2">
+                    <Button
+                      type="button"
+                      variant={modoNome === 'existente' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setModoNome('existente')}
+                      disabled={produtosExistentes.length === 0}
+                    >
+                      Selecionar Existente
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={modoNome === 'novo' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setModoNome('novo')}
+                    >
+                      Criar Novo
+                    </Button>
+                  </div>
+                  
+                  {modoNome === 'existente' && produtosExistentes.length > 0 ? (
+                    <Select value={formData.nome} onValueChange={(value) => setFormData({ ...formData, nome: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um produto existente" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {produtosExistentes.map((prod) => (
+                          <SelectItem key={prod.id} value={prod.nome}>
+                            {prod.nome}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      id="nome"
+                      value={formData.nome}
+                      onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                      placeholder="Ex: Aura"
+                      required
+                    />
+                  )}
                   <p className="text-sm text-muted-foreground">
-                    Escolha um nome único para este {formData.tipo_produto.toLowerCase()}
+                    {modoNome === 'existente' 
+                      ? `Selecione um ${formData.tipo_produto.toLowerCase()} existente para adicionar nova variação`
+                      : `Escolha um nome único para este ${formData.tipo_produto.toLowerCase()}`
+                    }
                   </p>
                 </div>
               </>
@@ -463,10 +516,7 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
       )}
 
       {produtoId && (
-        <>
-          <FornecedorSelector produtoId={produtoId} />
-          <VariacoesList produtoId={produtoId} fabricaId={fabricaId} />
-        </>
+        <VariacoesList produtoId={produtoId} fabricaId={fabricaId} />
       )}
     </div>
   );
