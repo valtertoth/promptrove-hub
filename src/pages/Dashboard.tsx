@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { Skeleton } from '@/components/ui/skeleton';
-import FabricaDashboard from '@/components/fabrica/FabricaDashboard';
-import EspecificadorDashboard from '@/components/especificador/EspecificadorDashboard';
-import FornecedorDashboard from '@/components/fornecedor/FornecedorDashboard';
-import RoleSelection from '@/components/dashboard/RoleSelection';
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
+import FabricaDashboard from "@/components/fabrica/FabricaDashboard";
+import EspecificadorDashboard from "@/components/especificador/EspecificadorDashboard";
+import FornecedorDashboard from "@/components/fornecedor/FornecedorDashboard";
+import RoleSelection from "@/components/dashboard/RoleSelection";
 
 const Dashboard = () => {
   const { user, loading: authLoading } = useAuth();
@@ -16,7 +16,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate('/auth');
+      navigate("/auth");
     }
   }, [user, authLoading, navigate]);
 
@@ -25,17 +25,13 @@ const Dashboard = () => {
       if (!user) return;
 
       try {
-        const { data, error } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id)
-          .maybeSingle();
+        const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
 
         if (error) throw error;
-        
+
         setUserRole(data?.role || null);
       } catch (error: any) {
-        console.error('Error fetching user role:', error);
+        console.error("Error fetching user role:", error);
       } finally {
         setLoading(false);
       }
@@ -59,19 +55,19 @@ const Dashboard = () => {
   }
 
   if (!userRole) {
-    return <RoleSelection userId={user?.id || ''} />;
+    return <RoleSelection userId={user?.id || ""} />;
   }
 
-  if (userRole === 'fabrica') {
-    return <FabricaDashboard userId={user?.id || ''} />;
+  if (userRole === "fabrica") {
+    return <FabricaDashboard userId={user?.id || ""} />;
   }
 
-  if (userRole === 'especificador') {
-    return <EspecificadorDashboard userId={user?.id || ''} />;
+  if (userRole === "especificador") {
+    return <EspecificadorDashboard userId={user?.id || ""} />;
   }
 
-  if (userRole === 'fornecedor') {
-    return <FornecedorDashboard userId={user?.id || ''} />;
+  if (userRole === "fornecedor") {
+    return <FornecedorDashboard userId={user?.id || ""} />;
   }
 
   return (
