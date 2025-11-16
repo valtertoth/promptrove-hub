@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Skeleton } from '@/components/ui/skeleton';
 import FabricaDashboard from '@/components/fabrica/FabricaDashboard';
 import EspecificadorDashboard from '@/components/especificador/EspecificadorDashboard';
+import FornecedorDashboard from '@/components/fornecedor/FornecedorDashboard';
 import RoleSelection from '@/components/dashboard/RoleSelection';
 
 const Dashboard = () => {
@@ -67,6 +68,10 @@ const Dashboard = () => {
 
   if (userRole === 'especificador') {
     return <EspecificadorDashboard userId={user?.id || ''} />;
+  }
+
+  if (userRole === 'fornecedor') {
+    return <FornecedorDashboard userId={user?.id || ''} />;
   }
 
   return (
