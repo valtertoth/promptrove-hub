@@ -403,6 +403,7 @@ export type Database = {
           fornecedor_id: string | null
           id: string
           material: string | null
+          medidas: string | null
           nome_componente: string
           observacoes: string | null
           ordem: number | null
@@ -416,6 +417,7 @@ export type Database = {
           fornecedor_id?: string | null
           id?: string
           material?: string | null
+          medidas?: string | null
           nome_componente: string
           observacoes?: string | null
           ordem?: number | null
@@ -429,6 +431,7 @@ export type Database = {
           fornecedor_id?: string | null
           id?: string
           material?: string | null
+          medidas?: string | null
           nome_componente?: string
           observacoes?: string | null
           ordem?: number | null

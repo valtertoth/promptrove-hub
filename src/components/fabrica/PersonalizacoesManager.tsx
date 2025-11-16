@@ -23,6 +23,7 @@ interface Personalizacao {
   material: string | null;
   acabamento: string | null;
   observacoes: string | null;
+  medidas: string | null;
   fornecedor?: {
     nome: string;
   };
@@ -48,6 +49,7 @@ export default function PersonalizacoesManager({ produtoId, fabricaId }: Persona
     material: '',
     acabamento: '',
     observacoes: '',
+    medidas: '',
   });
 
   const [conviteForm, setConviteForm] = useState({
@@ -125,6 +127,7 @@ export default function PersonalizacoesManager({ produtoId, fabricaId }: Persona
         material: '',
         acabamento: '',
         observacoes: '',
+        medidas: '',
       });
 
       fetchPersonalizacoes();
@@ -236,6 +239,11 @@ export default function PersonalizacoesManager({ produtoId, fabricaId }: Persona
                             <span className="font-medium">Acabamento:</span> {p.acabamento}
                           </div>
                         )}
+                        {p.medidas && (
+                          <div className="col-span-2">
+                            <span className="font-medium">Medidas:</span> {p.medidas}
+                          </div>
+                        )}
                         {p.fornecedor && (
                           <div className="col-span-2">
                             <span className="font-medium">Fornecedor:</span> {p.fornecedor.nome}
@@ -300,26 +308,40 @@ export default function PersonalizacoesManager({ produtoId, fabricaId }: Persona
                   />
                 </div>
                 <div>
-                  <Label htmlFor="fornecedor">
-                    Fornecedor
+                  <Label htmlFor="medidas">
+                    Medidas (C x L x A)
                     <span className="text-xs text-muted-foreground ml-1">(opcional)</span>
                   </Label>
-                  <div className="flex gap-2">
-                    <Select
-                      value={novaPersonalizacao.fornecedor_id}
-                      onValueChange={(value) => setNovaPersonalizacao({ ...novaPersonalizacao, fornecedor_id: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione ou convide" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {fornecedores.map((f) => (
-                          <SelectItem key={f.id} value={f.id}>
-                            {f.nome} ({f.tipo_material})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <Input
+                    id="medidas"
+                    placeholder="Ex: 180cm x 90cm x 75cm"
+                    value={novaPersonalizacao.medidas}
+                    onChange={(e) => setNovaPersonalizacao({ ...novaPersonalizacao, medidas: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="fornecedor">
+                  Fornecedor
+                  <span className="text-xs text-muted-foreground ml-1">(opcional)</span>
+                </Label>
+                <div className="flex gap-2">
+                  <Select
+                    value={novaPersonalizacao.fornecedor_id}
+                    onValueChange={(value) => setNovaPersonalizacao({ ...novaPersonalizacao, fornecedor_id: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione ou convide" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {fornecedores.map((f) => (
+                        <SelectItem key={f.id} value={f.id}>
+                          {f.nome} ({f.tipo_material})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                     <Dialog open={showConviteDialog} onOpenChange={setShowConviteDialog}>
                       <DialogTrigger asChild>
                         <Button variant="outline" size="icon" title="Convidar fornecedor">
@@ -371,7 +393,6 @@ export default function PersonalizacoesManager({ produtoId, fabricaId }: Persona
                     </Dialog>
                   </div>
                 </div>
-              </div>
 
               <div>
                 <Label htmlFor="descricao">Descrição</Label>
