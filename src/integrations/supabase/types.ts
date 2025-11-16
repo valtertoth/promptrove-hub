@@ -222,6 +222,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fabrica_especificador_especificador_id_fkey"
+            columns: ["especificador_id"]
+            isOneToOne: false
+            referencedRelation: "especificadores_publicos"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fabrica_especificador_fabrica_id_fkey"
             columns: ["fabrica_id"]
             isOneToOne: false
@@ -491,7 +498,48 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      especificadores_publicos: {
+        Row: {
+          cidade: string | null
+          created_at: string | null
+          descricao: string | null
+          especialidades: Json | null
+          estado: string | null
+          id: string | null
+          nome: string | null
+          pais: string | null
+          portfolio_url: string | null
+          regioes: Json | null
+          tipo: Database["public"]["Enums"]["tipo_especificador"] | null
+        }
+        Insert: {
+          cidade?: string | null
+          created_at?: string | null
+          descricao?: string | null
+          especialidades?: Json | null
+          estado?: string | null
+          id?: string | null
+          nome?: string | null
+          pais?: string | null
+          portfolio_url?: string | null
+          regioes?: Json | null
+          tipo?: Database["public"]["Enums"]["tipo_especificador"] | null
+        }
+        Update: {
+          cidade?: string | null
+          created_at?: string | null
+          descricao?: string | null
+          especialidades?: Json | null
+          estado?: string | null
+          id?: string | null
+          nome?: string | null
+          pais?: string | null
+          portfolio_url?: string | null
+          regioes?: Json | null
+          tipo?: Database["public"]["Enums"]["tipo_especificador"] | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       calcular_perfil_completo_fabrica: {
