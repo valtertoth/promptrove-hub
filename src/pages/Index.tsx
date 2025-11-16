@@ -1,12 +1,36 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Building2, Users, Package, Sparkles, Zap, Shield } from 'lucide-react';
+import { ArrowRight, Building2, Users, Package, Sparkles, CheckCircle, Zap } from 'lucide-react';
 
 const Index = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const [stats, setStats] = useState({ fabricas: 0, especificadores: 0, fornecedores: 0 });
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      const [fabricasRes, especificadoresRes, fornecedoresRes] = await Promise.all([
+        supabase.from('fabrica').select('id', { count: 'exact', head: true }),
+        supabase.from('especificador').select('id', { count: 'exact', head: true }),
+        supabase.from('fornecedor').select('id', { count: 'exact', head: true })
+      ]);
+
+      setStats({
+        fabricas: fabricasRes.count || 0,
+        especificadores: especificadoresRes.count || 0,
+        fornecedores: fornecedoresRes.count || 0
+      });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
@@ -57,26 +81,26 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Stats Section */}
+        {/* Stats Section - Platform Participants */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-32 max-w-4xl mx-auto">
           {[
-            { icon: Zap, label: 'Conexões Instantâneas', value: '100%' },
-            { icon: Shield, label: 'Segurança Premium', value: '24/7' },
-            { icon: Sparkles, label: 'Qualidade Garantida', value: 'Top' },
+            { icon: Building2, label: 'Fábricas Cadastradas', value: stats.fabricas, color: 'text-primary' },
+            { icon: Users, label: 'Especificadores Ativos', value: stats.especificadores, color: 'text-accent' },
+            { icon: Package, label: 'Fornecedores Premium', value: stats.fornecedores, color: 'text-primary' },
           ].map((stat, index) => (
             <div 
               key={index}
-              className="glass rounded-2xl p-6 text-center animate-scale-in"
+              className="glass rounded-2xl p-6 text-center animate-scale-in hover:scale-105 transition-transform duration-300"
               style={{ animationDelay: `${index * 0.1}s` }}
             >
-              <stat.icon className="h-8 w-8 text-primary mx-auto mb-3" />
-              <div className="text-3xl font-bold text-foreground mb-1">{stat.value}</div>
+              <stat.icon className={`h-8 w-8 ${stat.color} mx-auto mb-3`} />
+              <div className="text-4xl font-bold text-foreground mb-1">{stat.value}</div>
               <div className="text-sm text-muted-foreground">{stat.label}</div>
             </div>
           ))}
         </div>
 
-        {/* Features Grid */}
+        {/* Features Grid - Clickable Role Cards */}
         <div className="grid md:grid-cols-3 gap-8 mb-32">
           {[
             {
@@ -98,20 +122,101 @@ const Index = () => {
               gradient: 'from-primary/20 to-accent/10',
             },
           ].map((feature, index) => (
-            <div 
+            <button
               key={index}
-              className="card-premium text-center group animate-scale-in"
+              onClick={() => navigate('/auth')}
+              className="card-premium text-center group animate-scale-in cursor-pointer hover:border-primary/50 transition-all duration-300 w-full"
               style={{ animationDelay: `${index * 0.15}s` }}
             >
               <div className={`w-20 h-20 bg-gradient-to-br ${feature.gradient} rounded-3xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300`}>
                 <feature.icon className="h-10 w-10 text-primary" />
               </div>
               <h3 className="text-2xl font-bold mb-4 text-foreground">{feature.title}</h3>
-              <p className="text-muted-foreground leading-relaxed">
+              <p className="text-muted-foreground leading-relaxed mb-4">
                 {feature.description}
               </p>
-            </div>
+              <div className="flex items-center justify-center gap-2 text-primary text-sm font-medium">
+                <span>Criar conta</span>
+                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              </div>
+            </button>
           ))}
+        </div>
+
+        {/* Platform Benefits Section */}
+        <div className="mb-32">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border border-primary/20 mb-6">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium text-foreground">Transformação Digital</span>
+            </div>
+            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">
+              Como transformamos cada segmento
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Trazemos qualidade, padronização, profissionalismo e credibilidade para todo o ecossistema
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              {
+                icon: Building2,
+                title: 'Fábricas',
+                benefits: [
+                  'Visibilidade nacional para produtos premium',
+                  'Conexão direta com especificadores qualificados',
+                  'Gestão profissional de catálogo e variações',
+                  'Avaliações e credibilidade de mercado',
+                  'Informações técnicas padronizadas'
+                ],
+                gradient: 'from-primary/10 to-primary/5'
+              },
+              {
+                icon: Users,
+                title: 'Especificadores',
+                benefits: [
+                  'Acesso a catálogos premium verificados',
+                  'Informação técnica detalhada e confiável',
+                  'Avaliação de mercado e referências',
+                  'Decisões de compra mais seguras',
+                  'Networking com fornecedores de qualidade'
+                ],
+                gradient: 'from-accent/10 to-accent/5'
+              },
+              {
+                icon: Package,
+                title: 'Fornecedores',
+                benefits: [
+                  'Conexão direta com grandes fábricas',
+                  'Credibilidade através de avaliações',
+                  'Padronização de informações técnicas',
+                  'Visibilidade no mercado premium',
+                  'Crescimento sustentável do negócio'
+                ],
+                gradient: 'from-primary/10 to-accent/5'
+              }
+            ].map((segment, index) => (
+              <div 
+                key={index}
+                className="card-premium group animate-scale-in"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <div className={`w-16 h-16 bg-gradient-to-br ${segment.gradient} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
+                  <segment.icon className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="text-2xl font-bold mb-6 text-foreground">{segment.title}</h3>
+                <ul className="space-y-3 text-left">
+                  {segment.benefits.map((benefit, idx) => (
+                    <li key={idx} className="flex items-start gap-3 text-muted-foreground">
+                      <CheckCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                      <span className="leading-relaxed">{benefit}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Technology Section */}

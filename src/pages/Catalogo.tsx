@@ -16,6 +16,7 @@ const Catalogo = () => {
   const [selectedCategoria, setSelectedCategoria] = useState<string>('');
   const [selectedTipo, setSelectedTipo] = useState<string>('');
   const [selectedRegiao, setSelectedRegiao] = useState<string>('');
+  const [selectedFabrica, setSelectedFabrica] = useState<string>('');
   const [categorias, setCategorias] = useState<string[]>([]);
   const [tipos, setTipos] = useState<string[]>([]);
   const [regioes, setRegioes] = useState<string[]>([]);
@@ -26,7 +27,7 @@ const Catalogo = () => {
 
   useEffect(() => {
     filterProdutos();
-  }, [searchTerm, selectedCategoria, selectedTipo, selectedRegiao]);
+  }, [searchTerm, selectedCategoria, selectedTipo, selectedRegiao, selectedFabrica]);
 
   const fetchData = async () => {
     try {
@@ -114,6 +115,12 @@ const Catalogo = () => {
       );
     }
 
+    if (selectedFabrica) {
+      filtered = filtered.filter((produto) =>
+        produto.fabrica_id === selectedFabrica
+      );
+    }
+
     return filtered;
   };
 
@@ -122,6 +129,7 @@ const Catalogo = () => {
     setSelectedCategoria('');
     setSelectedTipo('');
     setSelectedRegiao('');
+    setSelectedFabrica('');
   };
 
   const filteredProdutos = filterProdutos();
@@ -153,7 +161,7 @@ const Catalogo = () => {
         <div className="max-w-7xl mx-auto px-6 py-4">
           <h1 className="text-3xl font-bold mb-4">Catálogo de Produtos</h1>
           
-          <div className="grid md:grid-cols-4 gap-4">
+          <div className="grid md:grid-cols-5 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
               <Input
@@ -205,9 +213,23 @@ const Catalogo = () => {
                 ))}
               </SelectContent>
             </Select>
+
+            <Select value={selectedFabrica} onValueChange={setSelectedFabrica}>
+              <SelectTrigger>
+                <SelectValue placeholder="Fábrica" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value=" ">Todas Fábricas</SelectItem>
+                {fabricas.map((fabrica) => (
+                  <SelectItem key={fabrica.id} value={fabrica.id}>
+                    {fabrica.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          {(searchTerm || selectedCategoria || selectedTipo || selectedRegiao) && (
+          {(searchTerm || selectedCategoria || selectedTipo || selectedRegiao || selectedFabrica) && (
             <div className="mt-4 flex items-center gap-2">
               <span className="text-sm text-muted-foreground">
                 {filteredProdutos.length} produto(s) encontrado(s)
