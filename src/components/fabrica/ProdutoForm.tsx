@@ -10,6 +10,7 @@ import { ArrowLeft, Plus, X } from 'lucide-react';
 import VariacoesList from './VariacoesList';
 import ImageUpload from './ImageUpload';
 import FornecedorSelector from './FornecedorSelector';
+import PersonalizacoesManager from './PersonalizacoesManager';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 
@@ -345,9 +346,26 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
                     Escolha um nome único para este {formData.tipo_produto.toLowerCase()}
                   </p>
                 </div>
+              </>
+            )}
+          </form>
+        </CardContent>
+      </Card>
 
-                <div className="space-y-2">
-                  <Label>Ambientes</Label>
+      {/* PersonalizacoesManager - Aparece após criar/editar o produto */}
+      {produtoId && (
+        <PersonalizacoesManager produtoId={produtoId} fabricaId={fabricaId} />
+      )}
+
+      {formData.tipo_produto && !showOutroTipo && produtoId && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Detalhes Adicionais</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <Label>Ambientes</Label>
                   <p className="text-sm text-muted-foreground mb-2">
                     Selecione os ambientes onde este produto pode ser usado
                   </p>
@@ -436,14 +454,13 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
                   />
                 </div>
 
-                <Button type="submit" disabled={loading} className="w-full">
-                  {loading ? 'Salvando...' : produto ? 'Atualizar Produto' : 'Criar Produto'}
-                </Button>
-              </>
-            )}
-          </form>
-        </CardContent>
-      </Card>
+              <Button type="submit" disabled={loading} className="w-full">
+                {loading ? 'Salvando...' : produto ? 'Atualizar Produto' : 'Criar Produto'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {produtoId && (
         <>

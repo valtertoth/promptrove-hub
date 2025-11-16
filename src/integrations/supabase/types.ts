@@ -74,6 +74,50 @@ export type Database = {
         }
         Relationships: []
       }
+      convites_fornecedor: {
+        Row: {
+          created_at: string | null
+          email: string
+          expires_at: string | null
+          fabrica_id: string
+          id: string
+          mensagem: string | null
+          nome_empresa: string | null
+          status: string | null
+          token: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          expires_at?: string | null
+          fabrica_id: string
+          id?: string
+          mensagem?: string | null
+          nome_empresa?: string | null
+          status?: string | null
+          token?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          expires_at?: string | null
+          fabrica_id?: string
+          id?: string
+          mensagem?: string | null
+          nome_empresa?: string | null
+          status?: string | null
+          token?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "convites_fornecedor_fabrica_id_fkey"
+            columns: ["fabrica_id"]
+            isOneToOne: false
+            referencedRelation: "fabrica"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       especificador: {
         Row: {
           aprovado: boolean | null
@@ -314,6 +358,99 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      notificacoes: {
+        Row: {
+          created_at: string | null
+          data_leitura: string | null
+          id: string
+          lida: boolean | null
+          mensagem: string
+          metadata: Json | null
+          tipo: string
+          titulo: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          data_leitura?: string | null
+          id?: string
+          lida?: boolean | null
+          mensagem: string
+          metadata?: Json | null
+          tipo: string
+          titulo: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          data_leitura?: string | null
+          id?: string
+          lida?: boolean | null
+          mensagem?: string
+          metadata?: Json | null
+          tipo?: string
+          titulo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      personalizacoes_produto: {
+        Row: {
+          acabamento: string | null
+          created_at: string | null
+          descricao: string | null
+          fornecedor_id: string | null
+          id: string
+          material: string | null
+          nome_componente: string
+          observacoes: string | null
+          ordem: number | null
+          produto_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          acabamento?: string | null
+          created_at?: string | null
+          descricao?: string | null
+          fornecedor_id?: string | null
+          id?: string
+          material?: string | null
+          nome_componente: string
+          observacoes?: string | null
+          ordem?: number | null
+          produto_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          acabamento?: string | null
+          created_at?: string | null
+          descricao?: string | null
+          fornecedor_id?: string | null
+          id?: string
+          material?: string | null
+          nome_componente?: string
+          observacoes?: string | null
+          ordem?: number | null
+          produto_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "personalizacoes_produto_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedor"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personalizacoes_produto_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       produto_fornecedor: {
         Row: {
