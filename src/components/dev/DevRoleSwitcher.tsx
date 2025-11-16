@@ -48,14 +48,12 @@ const DevRoleSwitcher = () => {
 
     setLoading(true);
     try {
-      await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', user.id);
-
       const { error } = await supabase
         .from('user_roles')
-        .insert({ user_id: user.id, role });
+        .upsert(
+          { user_id: user.id, role },
+          { onConflict: 'user_id,role', ignoreDuplicates: false }
+        );
 
       if (error) throw error;
 
