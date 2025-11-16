@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      ambientes: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          descricao: string | null
+          id: string
+          nome: string
+          ordem: number | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          nome: string
+          ordem?: number | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          nome?: string
+          ordem?: number | null
+        }
+        Relationships: []
+      }
       avaliacoes: {
         Row: {
           autor_id: string
@@ -421,6 +448,80 @@ export type Database = {
           nome?: string
           pais?: string | null
           telefone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      sugestoes_tipo_produto: {
+        Row: {
+          created_at: string | null
+          descricao: string | null
+          fabrica_id: string
+          id: string
+          mensagem_admin: string | null
+          nome_sugerido: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          descricao?: string | null
+          fabrica_id: string
+          id?: string
+          mensagem_admin?: string | null
+          nome_sugerido: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          descricao?: string | null
+          fabrica_id?: string
+          id?: string
+          mensagem_admin?: string | null
+          nome_sugerido?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sugestoes_tipo_produto_fabrica_id_fkey"
+            columns: ["fabrica_id"]
+            isOneToOne: false
+            referencedRelation: "fabrica"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tipos_produto: {
+        Row: {
+          ativo: boolean | null
+          campos_especificos: Json | null
+          created_at: string | null
+          descricao: string | null
+          id: string
+          nome: string
+          ordem: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          campos_especificos?: Json | null
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          nome: string
+          ordem?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          campos_especificos?: Json | null
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          nome?: string
+          ordem?: number | null
           updated_at?: string | null
         }
         Relationships: []

@@ -5,12 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Plus, X } from 'lucide-react';
 import VariacoesList from './VariacoesList';
 import ImageUpload from './ImageUpload';
 import FornecedorSelector from './FornecedorSelector';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 
 interface ProdutoFormProps {
   fabricaId: string;
@@ -18,46 +19,142 @@ interface ProdutoFormProps {
   onClose: () => void;
 }
 
+interface TipoProduto {
+  id: string;
+  nome: string;
+}
+
+interface Ambiente {
+  id: string;
+  nome: string;
+}
+
 const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [produtoId, setProdutoId] = useState(produto?.id || null);
   const [images, setImages] = useState<string[]>(produto?.imagens || []);
-  const [categorias, setCategorias] = useState<string[]>(produto?.categorias || []);
-  const [tags, setTags] = useState<string[]>(produto?.tags || []);
-  const [newCategoria, setNewCategoria] = useState('');
-  const [newTag, setNewTag] = useState('');
+  
+  // Novos estados para tipos e ambientes
+  const [tiposProduto, setTiposProduto] = useState<TipoProduto[]>([]);
+  const [ambientesDisponiveis, setAmbientesDisponiveis] = useState<Ambiente[]>([]);
+  const [ambientesSelecionados, setAmbientesSelecionados] = useState<string[]>(produto?.ambientes || []);
+  const [showOutroTipo, setShowOutroTipo] = useState(false);
+  const [sugestaoTipo, setSugestaoTipo] = useState('');
+  const [descricaoSugestao, setDescricaoSugestao] = useState('');
+  
   const [formData, setFormData] = useState({
+    tipo_produto: produto?.tipo_produto || '',
     nome: produto?.nome || '',
     descricao: produto?.descricao || '',
-    tipo_produto: produto?.tipo_produto || '',
     tempo_fabricacao_dias: produto?.tempo_fabricacao_dias || '',
   });
 
-  const addCategoria = () => {
-    if (newCategoria && !categorias.includes(newCategoria)) {
-      setCategorias([...categorias, newCategoria]);
-      setNewCategoria('');
+  // Carregar tipos de produtos e ambientes
+  useEffect(() => {
+    const fetchOptions = async () => {
+      try {
+        const [tiposRes, ambientesRes] = await Promise.all([
+          supabase
+            .from('tipos_produto')
+            .select('id, nome')
+            .eq('ativo', true)
+            .order('ordem'),
+          supabase
+            .from('ambientes')
+            .select('id, nome')
+            .eq('ativo', true)
+            .order('ordem')
+        ]);
+
+        if (tiposRes.data) setTiposProduto(tiposRes.data);
+        if (ambientesRes.data) setAmbientesDisponiveis(ambientesRes.data);
+      } catch (error) {
+        console.error('Error loading options:', error);
+      }
+    };
+
+    fetchOptions();
+  }, []);
+
+  const handleTipoChange = (value: string) => {
+    if (value === 'outro') {
+      setShowOutroTipo(true);
+      setFormData({ ...formData, tipo_produto: '' });
+    } else {
+      setShowOutroTipo(false);
+      setFormData({ ...formData, tipo_produto: value });
     }
   };
 
-  const removeCategoria = (cat: string) => {
-    setCategorias(categorias.filter(c => c !== cat));
-  };
+  const handleSubmitSugestao = async () => {
+    if (!sugestaoTipo.trim()) {
+      toast({
+        title: 'Campo obrigatório',
+        description: 'Por favor, informe o tipo de produto que deseja sugerir.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
-  const addTag = () => {
-    if (newTag && !tags.includes(newTag)) {
-      setTags([...tags, newTag]);
-      setNewTag('');
+    try {
+      const { error } = await supabase
+        .from('sugestoes_tipo_produto')
+        .insert({
+          nome_sugerido: sugestaoTipo,
+          descricao: descricaoSugestao,
+          fabrica_id: fabricaId,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Sugestão enviada',
+        description: 'Sua sugestão será analisada pela equipe. Você receberá uma notificação quando for aprovada.',
+      });
+
+      setSugestaoTipo('');
+      setDescricaoSugestao('');
+      setShowOutroTipo(false);
+    } catch (error: any) {
+      console.error('Error submitting suggestion:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível enviar a sugestão. Tente novamente.',
+        variant: 'destructive',
+      });
     }
   };
 
-  const removeTag = (tag: string) => {
-    setTags(tags.filter(t => t !== tag));
+  const toggleAmbiente = (ambienteNome: string) => {
+    if (ambientesSelecionados.includes(ambienteNome)) {
+      setAmbientesSelecionados(ambientesSelecionados.filter(a => a !== ambienteNome));
+    } else {
+      setAmbientesSelecionados([...ambientesSelecionados, ambienteNome]);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.tipo_produto) {
+      toast({
+        title: 'Campo obrigatório',
+        description: 'Por favor, selecione o tipo de produto.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!formData.nome.trim()) {
+      toast({
+        title: 'Campo obrigatório',
+        description: 'Por favor, informe o nome do produto.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -67,8 +164,7 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
           .update({
             ...formData,
             imagens: images,
-            categorias: categorias,
-            tags: tags,
+            ambientes: ambientesSelecionados,
             tempo_fabricacao_dias: formData.tempo_fabricacao_dias ? parseInt(formData.tempo_fabricacao_dias) : null,
           })
           .eq('id', produto.id);
@@ -86,8 +182,7 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
             ...formData,
             fabrica_id: fabricaId,
             imagens: images,
-            categorias: categorias,
-            tags: tags,
+            ambientes: ambientesSelecionados,
             tempo_fabricacao_dias: formData.tempo_fabricacao_dias ? parseInt(formData.tempo_fabricacao_dias) : null,
           })
           .select()
@@ -168,54 +263,6 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
                   rows={4}
                   placeholder="Descreva seu produto..."
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Categorias</Label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Ex: Mobiliário, Decoração..."
-                    value={newCategoria}
-                    onChange={(e) => setNewCategoria(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addCategoria())}
-                  />
-                  <Button type="button" onClick={addCategoria} variant="outline">
-                    Adicionar
-                  </Button>
-                </div>
-                {categorias.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {categorias.map((cat) => (
-                      <Badge key={cat} variant="secondary" className="cursor-pointer" onClick={() => removeCategoria(cat)}>
-                        {cat} ×
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label>Tags</Label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Ex: Sustentável, Artesanal..."
-                    value={newTag}
-                    onChange={(e) => setNewTag(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                  />
-                  <Button type="button" onClick={addTag} variant="outline">
-                    Adicionar
-                  </Button>
-                </div>
-                {tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {tags.map((tag) => (
-                      <Badge key={tag} variant="outline" className="cursor-pointer" onClick={() => removeTag(tag)}>
-                        {tag} ×
-                      </Badge>
-                    ))}
-                  </div>
-                )}
               </div>
 
               <div className="space-y-2">
