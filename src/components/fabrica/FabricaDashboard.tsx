@@ -133,6 +133,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
           <div className="grid gap-8 md:grid-cols-3">
             {/* Coluna Esquerda: Dados Básicos */}
             <div className="md:col-span-2 space-y-6">
+              {/* 1. Informações Básicas */}
               <Card className="rounded-2xl border-gray-100 shadow-lg bg-white overflow-hidden">
                 <CardHeader className="bg-gray-50/50 border-b border-gray-100 pb-4">
                   <CardTitle className="text-lg font-medium">Informações do Produto</CardTitle>
@@ -180,7 +181,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                 </CardContent>
               </Card>
 
-              {/* Bloco de Variações / Dimensões */}
+              {/* 2. Bloco de Variações / Dimensões */}
               <Card className="rounded-2xl border-gray-100 shadow-lg bg-white">
                 <CardHeader className="pb-4">
                   <CardTitle className="text-lg font-medium">Dimensões Disponíveis</CardTitle>
@@ -215,6 +216,75 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                   >
                     <Plus className="mr-2 h-4 w-4" /> Adicionar Medida
                   </Button>
+                </CardContent>
+              </Card>
+
+              {/* 3. Bloco de Materiais / Acabamentos (NOVO) */}
+              <Card className="rounded-2xl border-gray-100 shadow-lg bg-white">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-lg font-medium">Acabamentos & Materiais</CardTitle>
+                  <CardDescription>
+                    Selecione os fornecedores e materiais homologados para este produto.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  {/* Exemplo Visual de Categorias de Material */}
+                  <div className="space-y-4">
+                    {/* Grupo Madeiras */}
+                    <div className="p-4 border border-gray-100 rounded-xl bg-gray-50/50">
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-orange-400"></span>
+                        Madeiras / Lâminas
+                      </h4>
+                      <div className="grid gap-3">
+                        {/* Item Simulado 1 */}
+                        <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-amber-800 rounded-full"></div>
+                            <div>
+                              <p className="text-sm font-medium">Nogueira Americana</p>
+                              <p className="text-xs text-gray-400">Fornecedor: Madeiras do Brasil</p>
+                            </div>
+                          </div>
+                          <Button variant="outline" size="sm" className="h-7 text-xs rounded-lg">
+                            Selecionar
+                          </Button>
+                        </div>
+
+                        {/* Item Simulado 2 */}
+                        <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-amber-200 rounded-full"></div>
+                            <div>
+                              <p className="text-sm font-medium">Cinamomo Natural</p>
+                              <p className="text-xs text-gray-400">Fornecedor: Laminados Sul</p>
+                            </div>
+                          </div>
+                          <Button variant="outline" size="sm" className="h-7 text-xs rounded-lg">
+                            Selecionar
+                          </Button>
+                        </div>
+                      </div>
+                      <Button variant="link" className="text-primary text-xs mt-2 h-auto p-0">
+                        + Buscar mais madeiras
+                      </Button>
+                    </div>
+
+                    {/* Grupo Tecidos (Vazio para exemplo) */}
+                    <div className="p-4 border border-gray-100 rounded-xl bg-gray-50/50">
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+                        Tecidos
+                      </h4>
+                      <div className="text-center py-4 text-gray-400 text-sm">
+                        Nenhum tecido selecionado.
+                        <br />
+                        <Button variant="outline" size="sm" className="mt-2 rounded-lg">
+                          Adicionar Tecido
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </div>
