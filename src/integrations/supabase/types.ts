@@ -359,6 +359,42 @@ export type Database = {
         }
         Relationships: []
       }
+      materials: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean | null
+          name: string
+          sku_supplier: string | null
+          supplier_id: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          name: string
+          sku_supplier?: string | null
+          supplier_id: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          name?: string
+          sku_supplier?: string | null
+          supplier_id?: string
+          type?: string
+        }
+        Relationships: []
+      }
       notificacoes: {
         Row: {
           created_at: string | null
@@ -454,6 +490,81 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      product_materials: {
+        Row: {
+          created_at: string
+          id: string
+          material_id: string
+          product_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          material_id: string
+          product_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          material_id?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_materials_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_materials_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          dimensions: string[] | null
+          id: string
+          image_url: string | null
+          is_active: boolean | null
+          manufacturer_id: string
+          name: string
+          sku_manufacturer: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          dimensions?: string[] | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          manufacturer_id: string
+          name: string
+          sku_manufacturer?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          dimensions?: string[] | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          manufacturer_id?: string
+          name?: string
+          sku_manufacturer?: string | null
+        }
+        Relationships: []
       }
       produto_fornecedor: {
         Row: {
