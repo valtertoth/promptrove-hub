@@ -1,23 +1,85 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client"; // Conexão real
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, LayoutGrid, FolderHeart, Wallet, LogOut, Settings, Filter, Heart, ChevronRight } from "lucide-react";
+import {
+  Search,
+  LayoutGrid,
+  FolderHeart,
+  Wallet,
+  LogOut,
+  Settings,
+  Filter,
+  Heart,
+  ChevronRight,
+  PackageSearch,
+  Loader2,
+} from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface EspecificadorDashboardProps {
   userId: string;
 }
 
+// Interface do Produto Real
+interface Product {
+  id: string;
+  name: string;
+  category: string;
+  image_url: string | null;
+  manufacturer_id: string;
+  description: string;
+}
+
 const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
   const { signOut } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // 1. BUSCAR PRODUTOS REAIS DO SUPABASE
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("products")
+          .select("*")
+          .eq("is_active", true) // Apenas produtos ativos
+          .order("created_at", { ascending: false });
+
+        if (error) throw error;
+        if (data) setProducts(data);
+      } catch (error) {
+        console.error("Erro ao buscar vitrine:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+  // 2. FILTRO LOCAL DE PESQUISA
+  const filteredProducts = products.filter(
+    (p) =>
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.category.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
+  const handleEspecificar = (productName: string) => {
+    toast({
+      title: "Produto Adicionado!",
+      description: `${productName} foi salvo no seu projeto (Simulação).`,
+      className: "bg-emerald-600 text-white border-none",
+    });
+  };
+
   return (
-    <div className="min-h-screen bg-[#F8F9FA] p-6 md:p-10">
+    <div className="min-h-screen bg-[#F8F9FA] p-6 md:p-10 font-sans">
       {/* Cabeçalho Superior */}
       <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -72,7 +134,7 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
           <div className="relative max-w-2xl mx-auto md:mx-0">
             <Search className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
             <Input
-              placeholder="Busque por cadeiras, mesas, fábricas ou materiais..."
+              placeholder="Busque por cadeiras, mesas, design..."
               className="pl-12 h-12 rounded-2xl border-gray-200 shadow-sm bg-white text-lg focus-visible:ring-emerald-600"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -82,85 +144,82 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
             </Button>
           </div>
 
-          {/* Grid de Produtos (Mockup) */}
+          {/* Grid de Produtos REAIS */}
           <div>
             <h2 className="text-xl font-medium text-gray-800 mb-4">Destaques da Semana</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {/* Card de Produto 1 */}
-              <Card className="group rounded-2xl border-none shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden bg-white">
-                <div className="h-64 bg-gray-100 relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gray-200 flex items-center justify-center text-gray-400">
-                    <span className="text-xs">Foto do Produto</span>
-                  </div>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="absolute top-3 right-3 bg-white/50 hover:bg-white rounded-full text-gray-600 hover:text-red-500 transition-colors"
-                  >
-                    <Heart className="h-5 w-5" />
-                  </Button>
-                </div>
-                <CardContent className="p-5">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h3 className="font-semibold text-gray-900 text-lg group-hover:text-emerald-700 transition-colors">
-                        Poltrona Modern
-                      </h3>
-                      <p className="text-sm text-gray-500">Toth Móveis</p>
-                    </div>
-                    <Badge variant="secondary" className="bg-emerald-50 text-emerald-700">
-                      Novo
-                    </Badge>
-                  </div>
-                  <div className="mt-3 flex gap-2 flex-wrap">
-                    <Badge variant="outline" className="text-xs font-normal text-gray-500 border-gray-200">
-                      Madeira Nogueira
-                    </Badge>
-                    <Badge variant="outline" className="text-xs font-normal text-gray-500 border-gray-200">
-                      Linho Cru
-                    </Badge>
-                  </div>
-                </CardContent>
-                <CardFooter className="p-5 pt-0">
-                  <Button className="w-full rounded-xl bg-gray-900 hover:bg-emerald-700 text-white transition-colors">
-                    Especificar
-                  </Button>
-                </CardFooter>
-              </Card>
 
-              {/* Card de Produto 2 (Exemplo) */}
-              <Card className="group rounded-2xl border-none shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden bg-white">
-                <div className="h-64 bg-gray-100 relative">
-                  <div className="absolute inset-0 bg-gray-200 flex items-center justify-center text-gray-400">
-                    <span className="text-xs">Foto do Produto</span>
-                  </div>
-                </div>
-                <CardContent className="p-5">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h3 className="font-semibold text-gray-900 text-lg group-hover:text-emerald-700 transition-colors">
-                        Mesa Jantar Orgânica
-                      </h3>
-                      <p className="text-sm text-gray-500">Fábrica Exemplo</p>
+            {loading ? (
+              <div className="flex justify-center py-20">
+                <Loader2 className="h-10 w-10 animate-spin text-emerald-600" />
+              </div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="text-center py-20 bg-white rounded-3xl border border-dashed">
+                <PackageSearch className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900">Nenhum produto encontrado</h3>
+                <p className="text-gray-500">Tente buscar por outro termo.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {filteredProducts.map((product) => (
+                  <Card
+                    key={product.id}
+                    className="group rounded-2xl border-none shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden bg-white flex flex-col h-full"
+                  >
+                    <div className="h-64 bg-gray-100 relative overflow-hidden">
+                      {product.image_url ? (
+                        <img
+                          src={product.image_url}
+                          alt={product.name}
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 bg-gray-100 flex items-center justify-center text-gray-300">
+                          <span className="text-xs flex flex-col items-center">
+                            <PackageSearch className="h-8 w-8 mb-2" />
+                            Sem Foto
+                          </span>
+                        </div>
+                      )}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="absolute top-3 right-3 bg-white/50 hover:bg-white rounded-full text-gray-600 hover:text-red-500 transition-colors backdrop-blur-sm"
+                      >
+                        <Heart className="h-5 w-5" />
+                      </Button>
                     </div>
-                  </div>
-                  <div className="mt-3 flex gap-2 flex-wrap">
-                    <Badge variant="outline" className="text-xs font-normal text-gray-500 border-gray-200">
-                      Laca Off-White
-                    </Badge>
-                  </div>
-                </CardContent>
-                <CardFooter className="p-5 pt-0">
-                  <Button className="w-full rounded-xl bg-gray-900 hover:bg-emerald-700 text-white transition-colors">
-                    Especificar
-                  </Button>
-                </CardFooter>
-              </Card>
-            </div>
+                    <CardContent className="p-5 flex-1">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h3 className="font-semibold text-gray-900 text-lg group-hover:text-emerald-700 transition-colors line-clamp-1">
+                            {product.name}
+                          </h3>
+                          <p className="text-sm text-gray-500">{product.category}</p>
+                        </div>
+                        <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 shrink-0">
+                          Novo
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-gray-400 line-clamp-2 mt-2">
+                        {product.description || "Sem descrição detalhada."}
+                      </p>
+                    </CardContent>
+                    <CardFooter className="p-5 pt-0">
+                      <Button
+                        className="w-full rounded-xl bg-gray-900 hover:bg-emerald-700 text-white transition-colors shadow-lg hover:shadow-emerald-700/30"
+                        onClick={() => handleEspecificar(product.name)}
+                      >
+                        Especificar
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         </TabsContent>
 
-        {/* ABA: Projetos */}
+        {/* ABA: Projetos (Mockup Visual por enquanto) */}
         <TabsContent value="projects" className="space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-medium text-gray-800">Meus Projetos</h2>
@@ -175,17 +234,18 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
               </div>
             </Card>
 
+            {/* Exemplo Estático */}
             <Card className="rounded-2xl border-gray-100 shadow-sm hover:shadow-md transition-all cursor-pointer bg-white">
               <CardHeader>
                 <CardTitle>Residência Alphaville</CardTitle>
                 <CardDescription>Atualizado há 2 dias</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-gray-600">4 itens especificados</p>
+                <p className="text-sm text-gray-600">0 itens especificados</p>
                 <div className="flex -space-x-2 mt-4 overflow-hidden">
-                  <div className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gray-300"></div>
-                  <div className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gray-400"></div>
-                  <div className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gray-500"></div>
+                  <div className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-gray-200 flex items-center justify-center text-[10px] text-gray-500">
+                    ?
+                  </div>
                 </div>
               </CardContent>
               <CardFooter className="border-t border-gray-50 p-4 flex justify-between items-center text-sm text-emerald-700 font-medium">
@@ -195,7 +255,7 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
           </div>
         </TabsContent>
 
-        {/* ABA: Financeiro */}
+        {/* ABA: Financeiro (Placeholder) */}
         <TabsContent value="financial">
           <Card className="rounded-2xl border-gray-100 shadow-lg bg-white">
             <CardHeader>
