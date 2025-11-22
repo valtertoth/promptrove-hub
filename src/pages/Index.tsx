@@ -94,10 +94,12 @@ const Index = () => {
             >
               {session ? "Ir para meu Dashboard" : "Solicitar Acesso Exclusivo"}
             </Button>
+
+            {/* BOTÃO CORRIGIDO (Agora com borda e texto forçados) */}
             <Button
               onClick={() => document.getElementById("concept")?.scrollIntoView({ behavior: "smooth" })}
-              variant="outline"
-              className="h-14 px-8 rounded-full border-white/20 text-white hover:bg-white hover:text-[#103927] text-lg font-medium transition-colors"
+              variant="ghost"
+              className="h-14 px-8 rounded-full border-2 border-white/30 text-white hover:bg-white hover:text-[#103927] text-lg font-medium transition-all"
             >
               Conhecer o Processo
             </Button>
