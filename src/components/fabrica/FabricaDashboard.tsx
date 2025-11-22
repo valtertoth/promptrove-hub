@@ -8,15 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  SelectGroup,
-  SelectLabel,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Plus,
   Package,
@@ -30,6 +22,7 @@ import {
   Search,
   Factory,
   Building2,
+  X,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -43,9 +36,9 @@ interface FabricaDashboardProps {
 interface MaterialData {
   id: string;
   name: string;
-  type: string; // Ex: Madeira Maciça
+  type: string;
   supplier_id: string;
-  supplier_name?: string; // Nome da empresa (novo)
+  supplier_name?: string;
   sku_supplier: string;
   image_url: string | null;
 }
@@ -74,10 +67,8 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
     dimensions: [""],
   });
 
-  // 1. Buscar Todos os Materiais
   useEffect(() => {
     const fetchMaterials = async () => {
-      // Buscamos tudo e filtramos no front-end para ser instantâneo
       const { data, error } = await supabase.from("materials").select("*").order("created_at", { ascending: false });
 
       if (data) setAllMaterials(data);
@@ -97,13 +88,14 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
     setNewProduct({ ...newProduct, dimensions: dims });
   };
 
-  // LÓGICA INTELIGENTE: Filtrar Fornecedores baseados na Categoria
+  // LÓGICA CORRIGIDA: Filtrar Fornecedores
   const uniqueSuppliers = allMaterials
     .filter((m) => selectedCategory === "todos" || getCategoryGroup(m.type) === selectedCategory)
     .reduce(
       (acc, current) => {
-        const x = acc.find((item) => item.supplier_id === current.supplier_id);
-        if (!x) {
+        // Aqui estava o erro: item.id é onde guardamos o supplier_id na linha do return abaixo
+        const exists = acc.find((item) => item.id === current.supplier_id);
+        if (!exists) {
           return acc.concat([{ id: current.supplier_id, name: current.supplier_name || "Fornecedor Sem Nome" }]);
         } else {
           return acc;
@@ -112,14 +104,14 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
       [] as { id: string; name: string }[],
     );
 
-  // LÓGICA INTELIGENTE: Materiais exibidos na grid final
+  // Filtro de exibição na Grid
   const displayedMaterials = allMaterials.filter((m) => {
     const categoryMatch = selectedCategory === "todos" || getCategoryGroup(m.type) === selectedCategory;
     const supplierMatch = selectedSupplierId === "todos" || m.supplier_id === selectedSupplierId;
     return categoryMatch && supplierMatch;
   });
 
-  // Helper para agrupar tipos em categorias macro
+  // Helper de Categorias
   function getCategoryGroup(type: string) {
     if (["Madeira Maciça", "Lâmina Natural", "Lâmina Pré-Composta"].includes(type)) return "Madeiras";
     if (["Tecido Plano", "Couro Natural", "Couro Sintético", "Veludo"].includes(type)) return "Tecidos";
@@ -128,7 +120,6 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
     return "Outros";
   }
 
-  // Adicionar/Remover Material do Produto
   const toggleMaterial = (material: MaterialData) => {
     if (selectedMaterials.find((m) => m.id === material.id)) {
       setSelectedMaterials(selectedMaterials.filter((m) => m.id !== material.id));
@@ -137,7 +128,6 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
     }
   };
 
-  // SALVAR PRODUTO
   const handleSaveProduct = async () => {
     if (!newProduct.name || !newProduct.category) {
       toast({ title: "Erro", description: "Nome e Categoria são obrigatórios.", variant: "destructive" });
@@ -146,7 +136,6 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
 
     setLoading(true);
     try {
-      // 1. Salvar o Produto
       const { data: productData, error: productError } = await supabase
         .from("products")
         .insert({
@@ -162,7 +151,6 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
 
       if (productError) throw productError;
 
-      // 2. Criar os Vínculos
       if (selectedMaterials.length > 0 && productData) {
         const links = selectedMaterials.map((m) => ({
           product_id: productData.id,
@@ -175,7 +163,6 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
 
       toast({ title: "Produto Publicado!", className: "bg-green-600 text-white border-none" });
 
-      // Reset Total
       setNewProduct({ name: "", category: "", sku: "", description: "", dimensions: [""] });
       setSelectedMaterials([]);
       setSelectedCategory("todos");
@@ -189,7 +176,6 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] p-6 md:p-10 font-sans text-slate-800">
-      {/* Cabeçalho */}
       <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-light tracking-tight text-gray-900">
@@ -229,7 +215,6 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
 
         <TabsContent value="new-product">
           <div className="grid gap-8 md:grid-cols-12">
-            {/* COLUNA DA ESQUERDA: DADOS DO PRODUTO (Ocupa 7 colunas) */}
             <div className="md:col-span-7 space-y-6">
               <Card className="rounded-2xl border-gray-100 shadow-lg bg-white">
                 <CardHeader className="bg-gray-50/40 border-b border-gray-100 pb-4">
@@ -275,7 +260,6 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                 </CardContent>
               </Card>
 
-              {/* Resumo dos Materiais Selecionados */}
               {selectedMaterials.length > 0 && (
                 <Card className="rounded-2xl border-primary/20 shadow-lg bg-primary/5">
                   <CardHeader className="pb-2">
@@ -319,7 +303,6 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
               </Card>
             </div>
 
-            {/* COLUNA DA DIREITA: O CONSTRUTOR (Ocupa 5 colunas) */}
             <div className="md:col-span-5 space-y-6">
               <Card className="rounded-2xl border-gray-100 shadow-lg bg-white flex flex-col h-[750px]">
                 <CardHeader className="pb-4 px-6 pt-6 border-b border-gray-50">
@@ -329,9 +312,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                   </CardTitle>
                   <CardDescription>Escolha o fornecedor e especifique o material.</CardDescription>
 
-                  {/* FILTROS DO FUNIL */}
                   <div className="grid gap-3 mt-4">
-                    {/* 1. Filtro de Categoria */}
                     <Select
                       value={selectedCategory}
                       onValueChange={(val) => {
@@ -351,7 +332,6 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                       </SelectContent>
                     </Select>
 
-                    {/* 2. Seleção de Fornecedor (Dinâmico) */}
                     <Select value={selectedSupplierId} onValueChange={setSelectedSupplierId}>
                       <SelectTrigger className="h-10 rounded-xl bg-gray-50 border-gray-200">
                         <div className="flex items-center text-gray-500">
@@ -371,7 +351,6 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                   </div>
                 </CardHeader>
 
-                {/* GRID DE MATERIAIS FILTRADOS */}
                 <CardContent className="flex-1 overflow-hidden p-0 bg-gray-50/30">
                   <ScrollArea className="h-full px-4 py-4">
                     {displayedMaterials.length === 0 ? (
@@ -392,7 +371,6 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                                                 ${isSelected ? "border-blue-500 ring-1 ring-blue-500 bg-blue-50/50" : "border-gray-200 bg-white hover:border-blue-300"}
                                             `}
                             >
-                              {/* Imagem */}
                               <div className="h-24 w-full rounded-lg bg-gray-100 overflow-hidden relative">
                                 {mat.image_url ? (
                                   <img src={mat.image_url} className="w-full h-full object-cover" />
@@ -406,7 +384,6 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                                 )}
                               </div>
 
-                              {/* Textos */}
                               <div className="min-w-0">
                                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-0.5">
                                   {mat.type}
