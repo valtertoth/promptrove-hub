@@ -1,4 +1,3 @@
-// ... (Mantenha os imports anteriores)
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,7 +38,11 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
-// ... (Interfaces Product e Connection mantidas)
+// CORREÇÃO: Interface declarada explicitamente
+interface EspecificadorDashboardProps {
+  userId: string;
+}
+
 interface Product {
   id: string;
   name: string;
@@ -54,7 +57,6 @@ interface Connection {
 }
 
 const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
-  // ... (Estados loading, products, connections, search mantidos)
   const { signOut } = useAuth();
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
@@ -65,20 +67,18 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
   const [selectedFactoryId, setSelectedFactoryId] = useState<string | null>(null);
   const [applicationStep, setApplicationStep] = useState(false);
 
-  // NOVO STATE DO FORMULÁRIO COMPLETO
   const [formData, setFormData] = useState({
-    type: "", // Lojista, Arquiteto
+    type: "",
     docType: "cnpj",
     document: "",
     social: "",
     address: "",
-    logistics: "proprio", // proprio, terceirizado, sem_galpao
-    regions: "", // "SP, RJ"
-    salesModel: "revenda", // revenda, dropshipping
+    logistics: "proprio",
+    regions: "",
+    salesModel: "revenda",
     about: "",
   });
 
-  // ... (UseEffect fetchData e getConnectionStatus mantidos)
   useEffect(() => {
     fetchData();
   }, [userId]);
@@ -117,7 +117,6 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
     }
     setApplicationStep(true);
     try {
-      // Envia o JSON completo com os novos campos
       const { error } = await supabase.from("commercial_connections").insert({
         specifier_id: userId,
         factory_id: selectedFactoryId,
@@ -139,10 +138,6 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
     }
   };
 
-  // ... (Renderização da Vitrine e Tabs mantida igual ao anterior, focando só no Modal abaixo)
-  // (Vou omitir o código repetido da vitrine para focar na mudança do Modal)
-
-  // ... Código da Vitrine aqui ...
   const filteredProducts = products.filter(
     (p) =>
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -151,7 +146,6 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
 
   return (
     <div className="min-h-screen bg-background p-6 md:p-12 font-sans text-foreground">
-      {/* ... Header e Tabs iguais ao anterior ... */}
       <header className="flex justify-between items-end mb-12 pb-6 border-b border-border/40">
         <div>
           <h2 className="text-sm font-sans tracking-[0.2em] uppercase text-muted-foreground mb-2">
@@ -194,7 +188,6 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
         </div>
 
         <TabsContent value="marketplace">
-          {/* ... (Código da Vitrine igual ao anterior) ... */}
           <div className="relative max-w-3xl mx-auto mb-12">
             <Search className="absolute left-5 top-4 h-5 w-5 text-muted-foreground" />
             <Input
@@ -285,7 +278,6 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
         </TabsContent>
       </Tabs>
 
-      {/* O NOVO MODAL DE CANDIDATURA COMPLETA */}
       <Dialog open={isApplicationOpen} onOpenChange={setIsApplicationOpen}>
         <DialogContent className="sm:max-w-[800px] rounded-[2rem] p-0 border-none shadow-2xl overflow-hidden bg-[#FAFAF9]">
           <div className="bg-[#103927] p-8 text-white">
@@ -301,7 +293,6 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
           </div>
 
           <div className="p-8 grid gap-6 overflow-y-auto max-h-[600px]">
-            {/* Bloco 1: Perfil */}
             <div className="grid md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Perfil</Label>
@@ -326,7 +317,6 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
               </div>
             </div>
 
-            {/* Bloco 2: Operação */}
             <div className="grid md:grid-cols-2 gap-4 p-4 bg-white rounded-2xl border border-border/50">
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
@@ -359,7 +349,6 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
               </div>
             </div>
 
-            {/* Bloco 3: Área de Atuação */}
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Map className="w-4 h-4" /> Regiões de Atuação
@@ -374,7 +363,6 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
               </p>
             </div>
 
-            {/* Bloco 4: Digital */}
             <div className="space-y-2">
               <Label>Instagram / Site</Label>
               <Input
