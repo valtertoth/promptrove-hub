@@ -1,5 +1,6 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
@@ -8,7 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import Catalogo from "./pages/Catalogo";
 import Dev from "./pages/Dev";
 import NotFound from "./pages/NotFound";
-import AdminDashboard from "./components/admin/AdminDashboard"; // <--- IMPORT NOVO
+import AdminDashboard from "./components/admin/AdminDashboard";
 
 const queryClient = new QueryClient();
 
@@ -24,8 +25,8 @@ const App = () => (
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/catalogo" element={<Catalogo />} />
 
-          {/* ROTA DO MODO DEUS (Adicionada Agora) */}
-          <Route path="/admin" element={<AdminDashboard userId="admin-master" />} />
+          {/* ROTA DO MODO DEUS (Corrigida: Sem userId) */}
+          <Route path="/admin" element={<AdminDashboard />} />
 
           <Route path="/dev" element={<Dev />} />
           <Route path="*" element={<NotFound />} />
@@ -34,8 +35,5 @@ const App = () => (
     </TooltipProvider>
   </QueryClientProvider>
 );
-
-// Pequeno helper para o TooltipProvider que faltava no seu arquivo original
-import { TooltipProvider } from "@/components/ui/tooltip";
 
 export default App;
