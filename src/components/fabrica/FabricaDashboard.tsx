@@ -18,30 +18,15 @@ import {
   Loader2,
   Search,
   X,
-  ArrowRight,
-  Pencil,
-  Trash2,
+  Palette,
   UploadCloud,
   MapPin,
   Instagram,
-  Globe,
-  Palette,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface FabricaDashboardProps {
   userId: string;
@@ -89,7 +74,6 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
   const [selectedCategory, setSelectedCategory] = useState<string>("todos");
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>("todos");
   const [selectedMaterials, setSelectedMaterials] = useState<MaterialData[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
 
   const [newProduct, setNewProduct] = useState({
     name: "",
@@ -213,12 +197,28 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
     setLoading(false);
   };
 
+  // CORREÇÃO AQUI: Mapeamento manual para evitar erro de tipagem (sku vs sku_manufacturer)
   const handleEditProduct = async (p: ProductData) => {
     setEditingId(p.id);
-    setNewProduct({ ...p });
+    setNewProduct({
+      name: p.name,
+      category: p.category,
+      sku: p.sku_manufacturer || "", // Mapeando corretamente
+      description: p.description || "",
+      dimensions: p.dimensions || [""],
+      image_url: p.image_url || "",
+    });
+
     const { data } = await supabase.from("product_materials").select("material_id").eq("product_id", p.id);
     if (data) setSelectedMaterials(allMaterials.filter((m) => data.some((d) => d.material_id === m.id)));
     setActiveTab("new-product");
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setNewProduct({ name: "", category: "", sku: "", description: "", dimensions: [""], image_url: "" });
+    setSelectedMaterials([]);
+    setActiveTab("products");
   };
 
   return (
@@ -263,7 +263,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
           </TabsList>
         </div>
 
-        {/* VISÃO GERAL (Dashboard Real) */}
+        {/* VISÃO GERAL */}
         <TabsContent value="overview" className="space-y-8">
           <div className="grid grid-cols-3 gap-6">
             <Card className="rounded-3xl border-none shadow-lg bg-[#103927] text-white overflow-hidden relative">
@@ -304,7 +304,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
           </div>
         </TabsContent>
 
-        {/* PARCEIROS (Lista Elegante) */}
+        {/* PARCEIROS */}
         <TabsContent value="partners">
           <div className="grid gap-6 max-w-5xl mx-auto">
             {connections.filter((c) => c.status === "pending").length > 0 && (
@@ -352,13 +352,34 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                   ))}
               </div>
             )}
+            <div className="mt-8">
+              <h3 className="text-xl font-serif text-foreground mb-4">Rede Homologada</h3>
+              <div className="grid md:grid-cols-3 gap-4">
+                {connections
+                  .filter((c) => c.status === "approved")
+                  .map((conn) => (
+                    <div
+                      key={conn.id}
+                      className="flex items-center gap-4 p-4 bg-white border border-border rounded-2xl shadow-sm"
+                    >
+                      <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center text-green-700">
+                        <Check className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-foreground">{conn.application_data?.document}</p>
+                        <p className="text-xs text-muted-foreground uppercase">{conn.application_data?.type}</p>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
           </div>
         </TabsContent>
 
-        {/* EDITOR DE PRODUTO (O Redesign Principal) */}
+        {/* EDITOR DE PRODUTO */}
         <TabsContent value="new-product">
           <div className="grid grid-cols-12 gap-8">
-            {/* Lado Esquerdo: O Produto (Visual Clean) */}
+            {/* Lado Esquerdo */}
             <div className="col-span-7 space-y-6">
               <div className="bg-white p-8 rounded-[2rem] shadow-xl border border-border/50">
                 <div className="flex justify-between items-center mb-8">
@@ -473,7 +494,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
               </div>
             </div>
 
-            {/* Lado Direito: A Paleta de Materiais (Estilo Pinterest/Mesa de Trabalho) */}
+            {/* Lado Direito: Paleta */}
             <div className="col-span-5 flex flex-col h-full">
               <div className="bg-white rounded-[2rem] shadow-xl border border-border/50 flex flex-col h-[800px] overflow-hidden">
                 <div className="p-6 border-b border-border bg-secondary/5">
@@ -553,7 +574,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
           </div>
         </TabsContent>
 
-        {/* ACERVO (Vitrine Interna) */}
+        {/* ACERVO */}
         <TabsContent value="products">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {myProducts.map((p) => (
