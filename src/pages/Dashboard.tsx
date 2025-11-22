@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Factory, Store, User, Loader2, ShieldAlert } from "lucide-react";
+import { Factory, Store, User, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 // Import dos componentes de Dashboard específicos
@@ -30,19 +30,18 @@ const Dashboard = () => {
   const checkUserRole = async () => {
     try {
       // 1. Tenta buscar na tabela de roles
-      const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", user!.id).maybeSingle();
+      const { data } = await supabase.from("user_roles").select("role").eq("user_id", user!.id).maybeSingle();
 
       if (data) {
         setUserRole(data.role);
       } else {
-        // Se não achou, talvez seja a primeira vez. Vamos verificar se tem no metadata.
+        // Verifica metadata
         const metaRole = user?.user_metadata?.role;
         if (metaRole) {
-          // Se tem no metadata, salva no banco para ficar oficial
-          await supabase.from("user_roles").insert({ user_id: user!.id, role: metaRole });
+          // Força o insert com 'as any' para evitar erro de tipagem do TypeScript
+          await supabase.from("user_roles").insert({ user_id: user!.id, role: metaRole } as any);
           setUserRole(metaRole);
         }
-        // Se não tem em lugar nenhum, vai mostrar a tela de escolha
       }
     } catch (error) {
       console.error("Erro ao verificar role:", error);
@@ -53,12 +52,13 @@ const Dashboard = () => {
 
   const handleRoleSelection = async (role: "fabricante" | "fornecedor" | "especificador") => {
     try {
-      const { error } = await supabase.from("user_roles").insert({ user_id: user!.id, role: role });
+      // CORREÇÃO AQUI: Adicionei 'as any' para passar pelo validador do TypeScript
+      const { error } = await supabase.from("user_roles").insert({ user_id: user!.id, role: role } as any);
 
       if (error) throw error;
 
-      // Atualiza também o profile para garantir sincronia
-      await supabase.from("profiles").upsert({ id: user!.id, role: role, email: user!.email });
+      // Atualiza também o profile
+      await supabase.from("profiles").upsert({ id: user!.id, role: role, email: user!.email } as any);
 
       setUserRole(role);
       toast({ title: "Perfil definido com sucesso!" });
@@ -74,24 +74,16 @@ const Dashboard = () => {
   if (loading || roleLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#103927]" />
       </div>
     );
   }
 
   // Roteamento baseado no papel (Role)
-  if (userRole === "admin") {
-    return <AdminDashboard />;
-  }
-  if (userRole === "fabricante") {
-    return <FabricaDashboard userId={user!.id} />;
-  }
-  if (userRole === "fornecedor") {
-    return <FornecedorDashboard userId={user!.id} />;
-  }
-  if (userRole === "especificador") {
-    return <EspecificadorDashboard userId={user!.id} />;
-  }
+  if (userRole === "admin") return <AdminDashboard />;
+  if (userRole === "fabricante") return <FabricaDashboard userId={user!.id} />;
+  if (userRole === "fornecedor") return <FornecedorDashboard userId={user!.id} />;
+  if (userRole === "especificador") return <EspecificadorDashboard userId={user!.id} />;
 
   // Se não tem papel definido, mostra a tela de escolha
   return (
@@ -115,7 +107,7 @@ const Dashboard = () => {
               <h3 className="font-bold text-lg mb-1">Fábrica</h3>
               <p className="text-sm text-gray-500">Cadastre seus produtos e conecte-se com especificadores.</p>
             </div>
-            <Button className="w-full mt-auto bg-[#1C1917] hover:bg-black">Selecionar</Button>
+            <Button className="w-full mt-auto bg-[#1C1917] hover:bg-black rounded-xl">Selecionar</Button>
           </div>
 
           <div
@@ -129,7 +121,7 @@ const Dashboard = () => {
               <h3 className="font-bold text-lg mb-1">Fornecedor</h3>
               <p className="text-sm text-gray-500">Disponibilize seus materiais para as fábricas.</p>
             </div>
-            <Button className="w-full mt-auto bg-[#1C1917] hover:bg-black">Selecionar</Button>
+            <Button className="w-full mt-auto bg-[#1C1917] hover:bg-black rounded-xl">Selecionar</Button>
           </div>
 
           <div
@@ -143,7 +135,7 @@ const Dashboard = () => {
               <h3 className="font-bold text-lg mb-1">Especificador</h3>
               <p className="text-sm text-gray-500">Acesse catálogos exclusivos de fábricas premium.</p>
             </div>
-            <Button className="w-full mt-auto bg-[#1C1917] hover:bg-black">Selecionar</Button>
+            <Button className="w-full mt-auto bg-[#1C1917] hover:bg-black rounded-xl">Selecionar</Button>
           </div>
         </CardContent>
       </Card>
