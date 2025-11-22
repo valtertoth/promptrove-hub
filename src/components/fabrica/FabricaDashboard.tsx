@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,11 +23,11 @@ import {
   Building2,
   X,
   Layers,
+  ArrowRight,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface FabricaDashboardProps {
   userId: string;
@@ -43,12 +43,23 @@ interface MaterialData {
   image_url: string | null;
 }
 
+// Interface para os Produtos listados
+interface ProductData {
+  id: string;
+  name: string;
+  category: string;
+  sku_manufacturer: string;
+  created_at: string;
+}
+
 const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
   const { signOut } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("new-product"); // Controle manual da aba
 
   // Dados
   const [allMaterials, setAllMaterials] = useState<MaterialData[]>([]);
+  const [myProducts, setMyProducts] = useState<ProductData[]>([]); // Lista de produtos salvos
 
   // Filtros do Construtor (Direita)
   const [selectedCategory, setSelectedCategory] = useState<string>("todos");
@@ -66,14 +77,26 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
     dimensions: [""],
   });
 
+  // Buscar Materiais e Produtos ao carregar
   useEffect(() => {
-    const fetchMaterials = async () => {
-      const { data } = await supabase.from("materials").select("*").order("created_at", { ascending: false });
-
-      if (data) setAllMaterials(data);
-    };
     fetchMaterials();
+    fetchMyProducts();
   }, []);
+
+  const fetchMaterials = async () => {
+    const { data } = await supabase.from("materials").select("*").order("created_at", { ascending: false });
+    if (data) setAllMaterials(data);
+  };
+
+  const fetchMyProducts = async () => {
+    const { data } = await supabase
+      .from("products")
+      .select("*")
+      .eq("manufacturer_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (data) setMyProducts(data);
+  };
 
   // --- Helpers de Categorias ---
   function getCategoryGroup(type: string) {
@@ -133,6 +156,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
 
     setLoading(true);
     try {
+      // 1. Salvar Produto
       const { data: productData, error: productError } = await supabase
         .from("products")
         .insert({
@@ -148,6 +172,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
 
       if (productError) throw productError;
 
+      // 2. Salvar Vínculos
       if (selectedMaterials.length > 0 && productData) {
         const links = selectedMaterials.map((m) => ({
           product_id: productData.id,
@@ -158,15 +183,19 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
       }
 
       toast({
-        title: "Produto Criado!",
-        description: "Ficha técnica salva com sucesso.",
+        title: "Sucesso!",
+        description: "Produto e ficha técnica salvos.",
         className: "bg-green-600 text-white border-none",
       });
 
+      // 3. RESET E REDIRECIONAMENTO
       setNewProduct({ name: "", category: "", sku: "", description: "", dimensions: [""] });
       setSelectedMaterials([]);
       setSelectedCategory("todos");
-      setSelectedSupplierId("todos");
+
+      // Atualiza a lista e muda de aba
+      await fetchMyProducts();
+      setActiveTab("products");
     } catch (error: any) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } finally {
@@ -190,7 +219,8 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
         </div>
       </header>
 
-      <Tabs defaultValue="new-product" className="space-y-6">
+      {/* Controle de Abas via State (value={activeTab}) */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-white/80 backdrop-blur-sm p-1 rounded-2xl border border-gray-200/50 shadow-sm w-full md:w-auto inline-flex">
           <TabsTrigger value="overview" className="rounded-xl px-6">
             <LayoutDashboard className="mr-2 h-4 w-4" /> Visão Geral
@@ -206,9 +236,10 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
           </TabsTrigger>
         </TabsList>
 
+        {/* ABA: NOVO PRODUTO */}
         <TabsContent value="new-product">
           <div className="grid gap-8 md:grid-cols-12">
-            {/* --- COLUNA ESQUERDA: FICHA TÉCNICA (7 cols) --- */}
+            {/* ESQUERDA: FICHA TÉCNICA */}
             <div className="md:col-span-7 space-y-6">
               <Card className="rounded-2xl border-gray-100 shadow-lg bg-white">
                 <CardHeader className="bg-gray-50/40 border-b border-gray-100 pb-4">
@@ -254,7 +285,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                 </CardContent>
               </Card>
 
-              {/* ÁREA DE COMPOSIÇÃO DO PRODUTO (ORGANIZADA) */}
+              {/* ÁREA DE COMPOSIÇÃO */}
               <Card className="rounded-2xl border-gray-100 shadow-lg bg-white min-h-[300px]">
                 <CardHeader className="pb-2 border-b border-gray-50">
                   <CardTitle className="text-lg font-medium flex items-center gap-2">
@@ -272,15 +303,11 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                     </div>
                   ) : (
                     <div className="space-y-6">
-                      {/* Renderiza Grupos (Madeiras, Tecidos, etc) */}
                       {Object.entries(groupedSelected).map(([groupName, items]) => (
                         <div key={groupName} className="space-y-3">
                           <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                             {groupName}
-                            <span className="text-xs font-normal text-gray-400 lowercase ml-auto">
-                              {items.length} opções
-                            </span>
                           </h4>
                           <div className="flex flex-wrap gap-2">
                             {items.map((m) => (
@@ -313,7 +340,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                 </CardContent>
                 <div className="p-4 bg-gray-50 border-t border-gray-100 rounded-b-2xl">
                   <Button
-                    className="w-full h-12 text-lg font-semibold rounded-xl bg-gray-900 hover:bg-black shadow-lg"
+                    className="w-full h-12 text-lg font-semibold rounded-xl bg-gray-900 hover:bg-black shadow-lg transition-all active:scale-95"
                     onClick={handleSaveProduct}
                     disabled={loading}
                   >
@@ -324,7 +351,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
               </Card>
             </div>
 
-            {/* --- COLUNA DIREITA: SELETOR DE FORNECEDORES (5 cols) --- */}
+            {/* DIREITA: SELETOR */}
             <div className="md:col-span-5 space-y-6">
               <Card className="rounded-2xl border-gray-100 shadow-lg bg-white flex flex-col h-[800px]">
                 <CardHeader className="pb-4 px-6 pt-6 border-b border-gray-50 bg-blue-50/30">
@@ -332,12 +359,10 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                     <Building2 className="h-5 w-5" />
                     Catálogo de Fornecedores
                   </CardTitle>
-                  <CardDescription>Busque e habilite os materiais para este produto.</CardDescription>
-
-                  {/* FILTROS */}
+                  <CardDescription>Busque e habilite os materiais.</CardDescription>
                   <div className="space-y-3 mt-4">
                     <div>
-                      <Label className="text-xs text-gray-500 mb-1.5 block">1. Selecione a Categoria</Label>
+                      <Label className="text-xs text-gray-500 mb-1.5 block">1. Categoria</Label>
                       <Select
                         value={selectedCategory}
                         onValueChange={(val) => {
@@ -345,7 +370,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                           setSelectedSupplierId("todos");
                         }}
                       >
-                        <SelectTrigger className="h-11 rounded-xl bg-white border-gray-200 shadow-sm">
+                        <SelectTrigger className="h-11 rounded-xl bg-white border-gray-200">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -358,16 +383,16 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-xs text-gray-500 mb-1.5 block">2. Selecione o Fornecedor</Label>
+                      <Label className="text-xs text-gray-500 mb-1.5 block">2. Fornecedor</Label>
                       <Select value={selectedSupplierId} onValueChange={setSelectedSupplierId}>
-                        <SelectTrigger className="h-11 rounded-xl bg-white border-gray-200 shadow-sm">
+                        <SelectTrigger className="h-11 rounded-xl bg-white border-gray-200">
                           <div className="flex items-center">
                             <Factory className="w-4 h-4 mr-2 text-gray-400" />
                             <SelectValue placeholder="Todos" />
                           </div>
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="todos">Todos os Fornecedores</SelectItem>
+                          <SelectItem value="todos">Todos</SelectItem>
                           {uniqueSuppliers.map((sup) => (
                             <SelectItem key={sup.id} value={sup.id}>
                               {sup.name}
@@ -379,7 +404,6 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                   </div>
                 </CardHeader>
 
-                {/* GRID DE OPÇÕES */}
                 <CardContent className="flex-1 overflow-hidden p-0 bg-gray-50/30">
                   <ScrollArea className="h-full px-4 py-4">
                     {displayedMaterials.length === 0 ? (
@@ -412,7 +436,6 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                                   </div>
                                 )}
                               </div>
-
                               <div className="min-w-0">
                                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">
                                   {mat.type}
@@ -439,8 +462,64 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
           </div>
         </TabsContent>
 
+        {/* ABA: MEUS PRODUTOS (AGORA IMPLEMENTADA) */}
         <TabsContent value="products">
-          <div className="text-center py-10 text-gray-400">Lista de produtos em breve.</div>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-gray-800">Meu Portfólio</h2>
+            <Button onClick={() => setActiveTab("new-product")} className="bg-gray-900 text-white rounded-xl">
+              <Plus className="mr-2 h-4 w-4" /> Criar Novo
+            </Button>
+          </div>
+
+          {myProducts.length === 0 ? (
+            <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-200">
+              <Package className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+              <h3 className="text-lg font-medium text-gray-900">Nenhum produto criado</h3>
+              <p className="text-gray-500 mb-6">Cadastre seus produtos e vincule materiais.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {myProducts.map((product) => (
+                <Card
+                  key={product.id}
+                  className="rounded-2xl border-gray-100 shadow-sm hover:shadow-md transition-all bg-white overflow-hidden group"
+                >
+                  <CardHeader className="pb-3 bg-gray-50/50 border-b border-gray-50">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle className="text-lg font-medium text-gray-900">{product.name}</CardTitle>
+                        <CardDescription>{product.category}</CardDescription>
+                      </div>
+                      <Badge variant="outline" className="bg-white">
+                        {product.sku_manufacturer || "S/SKU"}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <Check className="h-4 w-4 text-green-500" />
+                      Ficha Técnica Ativa
+                    </div>
+                    <p className="text-xs text-gray-400 mt-2">
+                      Criado em {new Date(product.created_at).toLocaleDateString()}
+                    </p>
+                  </CardContent>
+                  <CardFooter className="p-4 pt-0">
+                    <Button
+                      variant="outline"
+                      className="w-full rounded-xl group-hover:bg-gray-900 group-hover:text-white transition-colors"
+                    >
+                      Ver Detalhes <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="overview">
+          <div className="text-center py-10 text-gray-400">Dashboards em breve.</div>
         </TabsContent>
       </Tabs>
     </div>
