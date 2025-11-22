@@ -1,211 +1,101 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { Card } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { z } from 'zod';
-
-const authSchema = z.object({
-  email: z.string().trim().email({ message: "Email inválido" }).max(255, { message: "Email muito longo" }),
-  password: z.string()
-    .min(8, { message: "Senha deve ter no mínimo 8 caracteres" })
-    .max(100, { message: "Senha muito longa" })
-    .regex(/[A-Z]/, { message: "Senha deve conter letra maiúscula" })
-    .regex(/[0-9]/, { message: "Senha deve conter número" }),
-  nome: z.string().trim().min(2, { message: "Nome muito curto" }).max(100, { message: "Nome muito longo" })
-});
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { Auth as SupabaseAuth } from "@supabase/auth-ui-react";
+import { ThemeSupa } from "@supabase/auth-ui-shared";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Auth = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [nome, setNome] = useState('');
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      const validation = authSchema.safeParse({ email, password, nome });
-      
-      if (!validation.success) {
-        const firstError = validation.error.errors[0];
-        toast({
-          variant: 'destructive',
-          title: 'Dados inválidos',
-          description: firstError.message,
-        });
-        setLoading(false);
-        return;
+  // Ouve o estado da autenticação
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        // Redireciona instantaneamente para o Dashboard
+        navigate("/dashboard");
       }
-
-      const { error } = await supabase.auth.signUp({
-        email: validation.data.email,
-        password: validation.data.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: {
-            nome: validation.data.nome
-          }
-        }
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: 'Cadastro realizado!',
-        description: 'Você já pode fazer login na plataforma.',
-      });
-      
-      navigate('/');
-    } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro no cadastro',
-        description: 'Ocorreu um erro ao processar sua solicitação.',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      const validation = z.object({
-        email: z.string().trim().email().max(255),
-        password: z.string().min(1).max(100)
-      }).safeParse({ email, password });
-      
-      if (!validation.success) {
-        toast({
-          variant: 'destructive',
-          title: 'Dados inválidos',
-          description: 'Verifique seu email e senha.',
-        });
-        setLoading(false);
-        return;
+      if (event === "USER_UPDATED") {
+        const { error } = supabase.auth.getSession() as any;
+        if (error) setErrorMessage(error.message);
       }
+      if (event === "SIGNED_OUT") {
+        setErrorMessage("");
+      }
+    });
 
-      const { error } = await supabase.auth.signInWithPassword({
-        email: validation.data.email,
-        password: validation.data.password,
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: 'Login realizado!',
-        description: 'Bem-vindo de volta.',
-      });
-      
-      navigate('/');
-    } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro no login',
-        description: 'Email ou senha incorretos.',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+    return () => subscription.unsubscribe();
+  }, [navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-subtle p-4">
-      <Card className="w-full max-w-md p-8 shadow-elegant">
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold mb-2">Bem-vindo</h1>
-          <p className="text-muted-foreground">Plataforma de Especificadores Premium</p>
+    <div className="min-h-screen flex bg-[#FAFAF9]">
+      {/* Coluna Esquerda: Imagem Conceitual */}
+      <div className="hidden lg:flex w-1/2 bg-[#103927] items-center justify-center p-12 relative overflow-hidden">
+        <div
+          className="absolute inset-0 opacity-20 mix-blend-overlay"
+          style={{
+            backgroundImage:
+              "url('https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?q=80&w=2000&auto=format&fit=crop')",
+          }}
+        ></div>
+        <div className="relative z-10 text-[#FAFAF9] max-w-lg">
+          <h1 className="text-5xl font-serif mb-6">Bem-vindo ao círculo.</h1>
+          <p className="text-lg font-light opacity-80">
+            Acesse o ecossistema definitivo para profissionais de alto padrão.
+          </p>
         </div>
+      </div>
 
-        <Tabs defaultValue="login" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="login">Entrar</TabsTrigger>
-            <TabsTrigger value="signup">Cadastrar</TabsTrigger>
-          </TabsList>
+      {/* Coluna Direita: Login */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
+        <div className="w-full max-w-md space-y-8">
+          <div className="text-center lg:text-left">
+            <h2 className="text-3xl font-serif text-[#1C1917]">Login / Cadastro</h2>
+            <p className="text-gray-500 mt-2">Entre com suas credenciais para acessar.</p>
+          </div>
 
-          <TabsContent value="login">
-            <form onSubmit={handleSignIn} className="space-y-4">
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  placeholder="seu@email.com"
-                />
-              </div>
-              <div>
-                <Label htmlFor="password">Senha</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  placeholder="••••••••"
-                />
-              </div>
-              <Button type="submit" className="w-full btn-premium" disabled={loading}>
-                {loading ? 'Entrando...' : 'Entrar'}
-              </Button>
-            </form>
-          </TabsContent>
+          {errorMessage && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>{errorMessage}</AlertDescription>
+            </Alert>
+          )}
 
-          <TabsContent value="signup">
-            <form onSubmit={handleSignUp} className="space-y-4">
-              <div>
-                <Label htmlFor="nome">Nome Completo</Label>
-                <Input
-                  id="nome"
-                  type="text"
-                  value={nome}
-                  onChange={(e) => setNome(e.target.value)}
-                  required
-                  placeholder="Seu nome"
-                />
-              </div>
-              <div>
-                <Label htmlFor="signup-email">Email</Label>
-                <Input
-                  id="signup-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  placeholder="seu@email.com"
-                />
-              </div>
-              <div>
-                <Label htmlFor="signup-password">Senha</Label>
-                <Input
-                  id="signup-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  placeholder="••••••••"
-                  minLength={6}
-                />
-              </div>
-              <Button type="submit" className="w-full btn-premium" disabled={loading}>
-                {loading ? 'Cadastrando...' : 'Criar Conta'}
-              </Button>
-            </form>
-          </TabsContent>
-        </Tabs>
-      </Card>
+          <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
+            <SupabaseAuth
+              supabaseClient={supabase}
+              appearance={{
+                theme: ThemeSupa,
+                variables: {
+                  default: {
+                    colors: {
+                      brand: "#103927", // Hunter Green
+                      brandAccent: "#0A261A",
+                      inputBackground: "white",
+                      inputText: "#1C1917",
+                      inputBorder: "#E5E5E5",
+                      inputBorderFocus: "#103927",
+                      inputBorderHover: "#103927",
+                    },
+                    radii: {
+                      borderRadiusButton: "12px",
+                      buttonBorderRadius: "12px",
+                      inputBorderRadius: "12px",
+                    },
+                    fonts: {
+                      bodyFontFamily: `Inter, sans-serif`,
+                      buttonFontFamily: `Inter, sans-serif`,
+                    },
+                  },
+                },
+              }}
+              providers={[]}
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
