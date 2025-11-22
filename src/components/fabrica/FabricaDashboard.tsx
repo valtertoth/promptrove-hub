@@ -30,7 +30,6 @@ import {
   Search,
   Factory,
   Building2,
-  X,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -103,7 +102,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
     .filter((m) => selectedCategory === "todos" || getCategoryGroup(m.type) === selectedCategory)
     .reduce(
       (acc, current) => {
-        const x = acc.find((item) => item.id === current.supplier_id);
+        const x = acc.find((item) => item.supplier_id === current.supplier_id);
         if (!x) {
           return acc.concat([{ id: current.supplier_id, name: current.supplier_name || "Fornecedor Sem Nome" }]);
         } else {
