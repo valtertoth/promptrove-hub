@@ -38,7 +38,6 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
-// CORREÇÃO: Interface declarada explicitamente
 interface EspecificadorDashboardProps {
   userId: string;
 }
@@ -50,7 +49,9 @@ interface Product {
   image_url: string | null;
   manufacturer_id: string;
   description: string;
+  manufacturer_name?: string; // Novo campo para o nome da fábrica
 }
+
 interface Connection {
   factory_id: string;
   status: "pending" | "approved" | "rejected";
@@ -86,25 +87,51 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
   const fetchData = async () => {
     setLoading(true);
     try {
+      // 1. Buscar Produtos
       const { data: prodData } = await supabase
         .from("products")
         .select("*")
         .eq("is_active", true)
         .order("created_at", { ascending: false });
-      if (prodData) setProducts(prodData);
+
+      // 2. Buscar Nomes das Fábricas (Cruzamento de dados)
+      if (prodData && prodData.length > 0) {
+        // Pega todos os IDs de fabricantes únicos
+        const manufacturerIds = [...new Set(prodData.map((p) => p.manufacturer_id))];
+
+        // Busca os perfis desses IDs
+        const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", manufacturerIds);
+
+        // Combina o produto com o nome da fábrica
+        const productsWithNames = prodData.map((p) => ({
+          ...p,
+          manufacturer_name: profiles?.find((prof) => prof.id === p.manufacturer_id)?.full_name || "Fábrica Parceira",
+        }));
+
+        setProducts(productsWithNames);
+      } else {
+        setProducts([]);
+      }
+
+      // 3. Buscar Conexões
       const { data: connData } = await supabase
         .from("commercial_connections")
         .select("factory_id, status")
         .eq("specifier_id", userId);
+
       if (connData) setConnections(connData as Connection[]);
     } catch (error) {
-      console.error(error);
+      console.error("Erro:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const getConnectionStatus = (factoryId: string) => connections.find((c) => c.factory_id === factoryId)?.status;
+  const getConnectionStatus = (factoryId: string) => {
+    const conn = connections.find((c) => c.factory_id === factoryId);
+    return conn ? conn.status : null;
+  };
+
   const handleOpenApplication = (factoryId: string) => {
     setSelectedFactoryId(factoryId);
     setIsApplicationOpen(true);
@@ -115,6 +142,7 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
       toast({ title: "Dados incompletos", description: "Preencha os campos obrigatórios.", variant: "destructive" });
       return;
     }
+
     setApplicationStep(true);
     try {
       const { error } = await supabase.from("commercial_connections").insert({
@@ -123,12 +151,15 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
         status: "pending",
         application_data: formData,
       });
+
       if (error) throw error;
+
       toast({
         title: "Dossiê Enviado",
         description: "A fábrica analisará sua estrutura comercial.",
         className: "bg-[#103927] text-white border-none",
       });
+
       setIsApplicationOpen(false);
       fetchData();
     } catch (error: any) {
@@ -141,7 +172,8 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
   const filteredProducts = products.filter(
     (p) =>
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.category.toLowerCase().includes(searchQuery.toLowerCase()),
+      p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.manufacturer_name || "").toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   return (
@@ -197,14 +229,21 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
+
           {loading ? (
-            <div className="flex justify-center">
-              <Loader2 className="animate-spin" />
+            <div className="flex justify-center py-32">
+              <Loader2 className="h-12 w-12 animate-spin text-[#103927]" />
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="text-center py-32 bg-white/50 rounded-[3rem] border border-dashed">
+              <PackageSearch className="h-16 w-16 mx-auto text-muted-foreground opacity-30 mb-6" />
+              <h3 className="text-2xl font-serif text-foreground">Nada encontrado</h3>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
               {filteredProducts.map((product) => {
                 const status = getConnectionStatus(product.manufacturer_id);
+
                 return (
                   <Card
                     key={product.id}
@@ -214,6 +253,7 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
                       {product.image_url ? (
                         <img
                           src={product.image_url}
+                          alt={product.name}
                           className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
                         />
                       ) : (
@@ -221,11 +261,15 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
                           <PackageSearch className="h-12 w-12 opacity-20" />
                         </div>
                       )}
+
+                      {/* Etiqueta de Categoria */}
                       <div className="absolute top-4 left-4 flex gap-2">
                         <Badge className="bg-white/90 text-foreground backdrop-blur shadow-sm hover:bg-white">
                           {product.category}
                         </Badge>
                       </div>
+
+                      {/* Bloqueio Visual se não aprovado */}
                       {status !== "approved" && (
                         <div className="absolute inset-0 bg-[#103927]/90 backdrop-blur-sm flex flex-col items-center justify-center text-white p-6 text-center opacity-0 group-hover:opacity-100 transition-all duration-500">
                           <Lock className="h-10 w-10 mb-4 text-[#D4AF37]" />
@@ -234,7 +278,14 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
                         </div>
                       )}
                     </div>
+
                     <CardContent className="p-8 flex-1">
+                      {/* NOME DA FÁBRICA AGORA APARECE AQUI */}
+                      <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                        <Building2 className="w-3 h-3" />
+                        <span className="text-xs font-bold tracking-widest uppercase">{product.manufacturer_name}</span>
+                      </div>
+
                       <h3 className="font-serif font-medium text-2xl text-foreground leading-tight mb-2">
                         {product.name}
                       </h3>
@@ -242,22 +293,26 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
                         {product.description}
                       </p>
                     </CardContent>
+
                     <CardFooter className="p-8 pt-0">
                       {status === "approved" ? (
                         <Button
-                          className="w-full h-14 rounded-2xl bg-[#1C1917] hover:bg-black text-white shadow-lg"
-                          onClick={() => toast({ title: "Em breve: Módulo de Pedidos" })}
+                          className="w-full h-14 rounded-2xl bg-[#1C1917] hover:bg-black text-white shadow-lg transition-all group-hover:scale-105"
+                          onClick={() => toast({ title: "Adicionado ao projeto" })}
                         >
                           Especificar <ChevronRight className="ml-2 h-4 w-4" />
                         </Button>
                       ) : status === "pending" ? (
-                        <Button disabled className="w-full h-14 rounded-2xl bg-amber-100 text-amber-700">
+                        <Button
+                          disabled
+                          className="w-full h-14 rounded-2xl bg-amber-100 text-amber-700 border border-amber-100"
+                        >
                           <Clock className="mr-2 h-4 w-4" /> Em Análise
                         </Button>
                       ) : (
                         <Button
                           variant="outline"
-                          className="w-full h-14 rounded-2xl border-border hover:border-[#103927] hover:text-[#103927]"
+                          className="w-full h-14 rounded-2xl border-border hover:border-[#103927] hover:text-[#103927] bg-transparent"
                           onClick={() => handleOpenApplication(product.manufacturer_id)}
                         >
                           Solicitar Acesso
@@ -270,6 +325,7 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
             </div>
           )}
         </TabsContent>
+
         <TabsContent value="projects" className="text-center py-32 opacity-50">
           Área de Projetos em construção.
         </TabsContent>
@@ -278,6 +334,7 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
         </TabsContent>
       </Tabs>
 
+      {/* MODAL DE CANDIDATURA */}
       <Dialog open={isApplicationOpen} onOpenChange={setIsApplicationOpen}>
         <DialogContent className="sm:max-w-[800px] rounded-[2rem] p-0 border-none shadow-2xl overflow-hidden bg-[#FAFAF9]">
           <div className="bg-[#103927] p-8 text-white">
@@ -301,17 +358,16 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
                     <SelectValue placeholder="Selecione..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="lojista">Lojista (CNPJ)</SelectItem>
-                    <SelectItem value="arquiteto">Arquiteto (RT)</SelectItem>
-                    <SelectItem value="representante">Representante</SelectItem>
+                    <SelectItem value="lojista">Lojista</SelectItem>
+                    <SelectItem value="arquiteto">Arquiteto</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2 md:col-span-2">
-                <Label>Documento (CNPJ/CPF)</Label>
+                <Label>Documento</Label>
                 <Input
                   className="bg-white rounded-xl"
-                  placeholder="00.000.000/0000-00"
+                  placeholder="CPF/CNPJ"
                   onChange={(e) => setFormData({ ...formData, document: e.target.value })}
                 />
               </div>
@@ -327,9 +383,9 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
                     <SelectValue placeholder="Como você recebe?" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="proprio">Galpão Próprio (Cross-docking)</SelectItem>
+                    <SelectItem value="proprio">Galpão Próprio</SelectItem>
                     <SelectItem value="loja">Recebimento na Loja</SelectItem>
-                    <SelectItem value="cliente">Direto no Cliente (Dropshipping)</SelectItem>
+                    <SelectItem value="cliente">Direto no Cliente</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -342,8 +398,8 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
                     <SelectValue placeholder="Preferência Fiscal" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="revenda">Revenda (Compra e Venda)</SelectItem>
-                    <SelectItem value="interne">Intermediação (Comissão/RT)</SelectItem>
+                    <SelectItem value="revenda">Revenda</SelectItem>
+                    <SelectItem value="interne">Intermediação (RT)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -355,12 +411,9 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
               </Label>
               <Input
                 className="bg-white rounded-xl"
-                placeholder="Ex: São Paulo Capital, Alphaville, Campinas..."
+                placeholder="Ex: São Paulo Capital, Alphaville..."
                 onChange={(e) => setFormData({ ...formData, regions: e.target.value })}
               />
-              <p className="text-xs text-muted-foreground">
-                Liste as cidades onde você possui força de venda ou entrega.
-              </p>
             </div>
 
             <div className="space-y-2">
