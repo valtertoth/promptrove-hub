@@ -100,12 +100,12 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
         const manufacturerIds = [...new Set(prodData.map((p) => p.manufacturer_id))];
 
         // Busca os perfis desses IDs
-        const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", manufacturerIds);
+        const { data: profiles } = await supabase.from("profiles").select("id, nome").in("id", manufacturerIds);
 
         // Combina o produto com o nome da fábrica
         const productsWithNames = prodData.map((p) => ({
           ...p,
-          manufacturer_name: profiles?.find((prof) => prof.id === p.manufacturer_id)?.full_name || "Fábrica Parceira",
+          manufacturer_name: profiles?.find((prof) => prof.id === p.manufacturer_id)?.nome || "Fábrica Parceira",
         }));
 
         setProducts(productsWithNames);
