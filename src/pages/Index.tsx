@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Layers, PenTool, Factory, ChevronDown, Star } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client"; // Import para checar login
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -11,14 +11,31 @@ const Index = () => {
   const y1 = useTransform(scrollY, [0, 500], [0, 200]);
   const y2 = useTransform(scrollY, [0, 500], [0, -150]);
 
-  // Redirecionamento Automático se já estiver logado
+  // Estado para saber se está logado ou não
+  const [session, setSession] = useState<any>(null);
+
   useEffect(() => {
+    // Apenas verifica a sessão, NÃO redireciona mais automaticamente
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        navigate("/dashboard");
-      }
+      setSession(session);
     });
-  }, [navigate]);
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleAction = () => {
+    if (session) {
+      navigate("/dashboard");
+    } else {
+      navigate("/auth");
+    }
+  };
 
   const noiseBg =
     "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E\")";
@@ -28,14 +45,15 @@ const Index = () => {
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 py-6 mix-blend-difference text-white">
         <div className="text-2xl font-serif font-bold tracking-tighter">Specify.</div>
         <div className="flex gap-6 text-sm font-medium tracking-wide">
-          <button onClick={() => navigate("/auth")} className="hover:underline underline-offset-4 transition-all">
-            Login
+          {/* BOTÃO INTELIGENTE NA NAVBAR */}
+          <button onClick={handleAction} className="hover:underline underline-offset-4 transition-all">
+            {session ? "Meu Painel" : "Login"}
           </button>
           <button
-            onClick={() => navigate("/auth")}
+            onClick={handleAction}
             className="px-5 py-2 bg-white text-black rounded-full hover:bg-gray-200 transition-all"
           >
-            Começar
+            {session ? "Continuar" : "Começar"}
           </button>
         </div>
       </nav>
@@ -69,13 +87,13 @@ const Index = () => {
           </p>
 
           <div className="pt-8 flex flex-col md:flex-row gap-4 justify-center">
+            {/* BOTÃO INTELIGENTE PRINCIPAL */}
             <Button
-              onClick={() => navigate("/auth")}
+              onClick={handleAction}
               className="h-14 px-8 rounded-full bg-[#D4AF37] text-[#103927] hover:bg-[#c4a02e] text-lg font-medium transition-all duration-300 shadow-[0_0_30px_-10px_rgba(212,175,55,0.6)]"
             >
-              Solicitar Acesso Exclusivo
+              {session ? "Ir para meu Dashboard" : "Solicitar Acesso Exclusivo"}
             </Button>
-            {/* BOTÃO CORRIGIDO: TEXTO ESCURO NO HOVER/PADRÃO PARA CONTRASTE */}
             <Button
               onClick={() => document.getElementById("concept")?.scrollIntoView({ behavior: "smooth" })}
               variant="outline"
@@ -126,7 +144,6 @@ const Index = () => {
               <p className="text-[#1C1917]/70 leading-relaxed">O acervo de matérias-primas.</p>
             </motion.div>
 
-            {/* FOTO DA FÁBRICA CORRIGIDA */}
             <motion.div className="group md:mt-20">
               <div className="h-[500px] bg-[#E5E5E5] rounded-[2rem] overflow-hidden relative mb-6 shadow-2xl">
                 <img
@@ -192,10 +209,10 @@ const Index = () => {
               ))}
             </ul>
             <Button
-              onClick={() => navigate("/auth")}
+              onClick={handleAction}
               className="mt-8 h-12 px-8 rounded-full bg-white text-[#103927] hover:bg-gray-100 font-medium"
             >
-              Começar Agora
+              {session ? "Voltar ao Dashboard" : "Começar Agora"}
             </Button>
           </div>
           <div className="md:w-1/2 relative">
@@ -232,7 +249,7 @@ const Index = () => {
         </div>
       </section>
 
-      {/* FOOTER CORRIGIDO */}
+      {/* FOOTER */}
       <footer className="bg-[#0A261A] text-[#FAFAF9]/60 py-12 px-6 border-t border-white/10">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="text-2xl font-serif font-bold text-white tracking-tighter">Specify.</div>
@@ -248,8 +265,7 @@ const Index = () => {
             </a>
             <a href="#" className="hover:text-white transition-colors">
               Para Fornecedores
-            </a>{" "}
-            {/* ADICIONADO */}
+            </a>
           </div>
           <div className="text-xs">© 2025 Specify Ecosystem. All rights reserved.</div>
         </div>
