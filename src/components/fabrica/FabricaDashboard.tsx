@@ -26,6 +26,7 @@ import {
   ArrowRight,
   Pencil,
   Trash2,
+  UploadCloud,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -63,12 +64,14 @@ interface ProductData {
   sku_manufacturer: string;
   description: string;
   dimensions: string[];
+  image_url: string | null; // Adicionado
   created_at: string;
 }
 
 const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
   const { signOut } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false); // Estado de upload
   const [activeTab, setActiveTab] = useState("new-product");
 
   // Estados de Dados
@@ -92,6 +95,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
     sku: "",
     description: "",
     dimensions: [""],
+    image_url: "", // Novo campo
   });
 
   useEffect(() => {
@@ -111,6 +115,34 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
       .eq("manufacturer_id", userId)
       .order("created_at", { ascending: false });
     if (data) setMyProducts(data);
+  };
+
+  // --- Lógica de Upload de Imagem do Produto ---
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      setUploading(true);
+      const fileExt = file.name.split(".").pop();
+      const fileName = `product-${userId}-${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      // Usa o mesmo bucket 'material-images' ou idealmente criaria um 'product-images'
+      // Vamos usar o mesmo por enquanto para facilitar, pois a policy é pública
+      const { error: uploadError } = await supabase.storage.from("material-images").upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from("material-images").getPublicUrl(filePath);
+
+      setNewProduct((prev) => ({ ...prev, image_url: data.publicUrl }));
+      toast({ title: "Foto do produto carregada!", className: "bg-green-600 text-white border-none" });
+    } catch (error: any) {
+      toast({ title: "Erro no upload", description: "Tente uma imagem menor.", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
   };
 
   // --- Helpers ---
@@ -158,6 +190,18 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
     {} as Record<string, MaterialData[]>,
   );
 
+  // Helpers de Dimensão
+  const addDimension = () => setNewProduct({ ...newProduct, dimensions: [...newProduct.dimensions, ""] });
+  const updateDimension = (index: number, val: string) => {
+    const dims = [...newProduct.dimensions];
+    dims[index] = val;
+    setNewProduct({ ...newProduct, dimensions: dims });
+  };
+  const removeDimension = (index: number) => {
+    const dims = newProduct.dimensions.filter((_, i) => i !== index);
+    setNewProduct({ ...newProduct, dimensions: dims });
+  };
+
   // --- LÓGICA DE EDIÇÃO ---
   const handleEditProduct = async (product: ProductData) => {
     setEditingId(product.id);
@@ -167,6 +211,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
       sku: product.sku_manufacturer || "",
       description: product.description || "",
       dimensions: product.dimensions || [""],
+      image_url: product.image_url || "",
     });
 
     const { data: links } = await supabase.from("product_materials").select("material_id").eq("product_id", product.id);
@@ -181,12 +226,11 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
 
   const handleCancelEdit = () => {
     setEditingId(null);
-    setNewProduct({ name: "", category: "", sku: "", description: "", dimensions: [""] });
+    setNewProduct({ name: "", category: "", sku: "", description: "", dimensions: [""], image_url: "" });
     setSelectedMaterials([]);
     setActiveTab("products");
   };
 
-  // --- LÓGICA DE EXCLUSÃO ---
   const handleDeleteProduct = async (id: string) => {
     await supabase.from("product_materials").delete().eq("product_id", id);
     const { error } = await supabase.from("products").delete().eq("id", id);
@@ -199,7 +243,6 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
     }
   };
 
-  // --- SALVAR OU ATUALIZAR ---
   const handleSaveProduct = async () => {
     if (!newProduct.name || !newProduct.category) {
       toast({ title: "Erro", description: "Preencha os campos obrigatórios.", variant: "destructive" });
@@ -217,6 +260,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
         sku_manufacturer: newProduct.sku,
         description: newProduct.description,
         dimensions: newProduct.dimensions,
+        image_url: newProduct.image_url, // Salva a imagem
       };
 
       if (editingId) {
@@ -240,7 +284,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
       }
 
       setEditingId(null);
-      setNewProduct({ name: "", category: "", sku: "", description: "", dimensions: [""] });
+      setNewProduct({ name: "", category: "", sku: "", description: "", dimensions: [""], image_url: "" });
       setSelectedMaterials([]);
       await fetchMyProducts();
       setActiveTab("products");
@@ -284,14 +328,57 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
           </TabsTrigger>
         </TabsList>
 
-        {/* ABA: FORMULÁRIO (CRIAR / EDITAR) */}
         <TabsContent value="new-product">
           <div className="grid gap-8 md:grid-cols-12">
             <div className="md:col-span-7 space-y-6">
+              {/* CARD DE IMAGEM (NOVO) */}
+              <Card className="rounded-2xl border-gray-100 shadow-lg bg-white">
+                <CardHeader className="pb-4 px-6 pt-6">
+                  <CardTitle className="text-lg font-medium">Foto Principal</CardTitle>
+                  <CardDescription>Imagem do produto finalizado (Cadeira Montada).</CardDescription>
+                </CardHeader>
+                <CardContent className="p-6 pt-2">
+                  {newProduct.image_url ? (
+                    <div className="relative rounded-2xl overflow-hidden h-64 border border-gray-200 group">
+                      <img src={newProduct.image_url} alt="Preview" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <label
+                          htmlFor="prod-img-upload"
+                          className="cursor-pointer text-white flex flex-col items-center"
+                        >
+                          <UploadCloud className="h-8 w-8 mb-2" />
+                          <span className="text-sm">Trocar Foto</span>
+                        </label>
+                      </div>
+                    </div>
+                  ) : (
+                    <label
+                      htmlFor="prod-img-upload"
+                      className="border-2 border-dashed border-gray-200 rounded-2xl h-48 flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 hover:border-primary/50 transition-all cursor-pointer bg-gray-50/50"
+                    >
+                      {uploading ? (
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                      ) : (
+                        <ImageIcon className="h-10 w-10 mb-2 opacity-50" />
+                      )}
+                      <span className="text-sm">Clique para adicionar foto do produto</span>
+                    </label>
+                  )}
+                  <input
+                    id="prod-img-upload"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageUpload}
+                    disabled={uploading}
+                  />
+                </CardContent>
+              </Card>
+
               <Card className="rounded-2xl border-gray-100 shadow-lg bg-white">
                 <CardHeader className="bg-gray-50/40 border-b border-gray-100 pb-4 flex flex-row justify-between items-center">
                   <CardTitle className="text-lg font-medium">
-                    {editingId ? "Editando Ficha Técnica" : "1. Dados do Produto"}
+                    {editingId ? "Dados do Produto" : "1. Dados do Produto"}
                   </CardTitle>
                   {editingId && (
                     <Button
@@ -333,6 +420,30 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                       />
                     </div>
                   </div>
+
+                  {/* DIMENSÕES DINÂMICAS */}
+                  <div className="grid gap-2">
+                    <Label>Dimensões Disponíveis</Label>
+                    {newProduct.dimensions.map((dim, i) => (
+                      <div key={i} className="flex gap-2">
+                        <Input
+                          className="h-10 rounded-xl bg-gray-50/30"
+                          value={dim}
+                          onChange={(e) => updateDimension(i, e.target.value)}
+                          placeholder="L: 50cm x P: 50cm x A: 90cm"
+                        />
+                        {newProduct.dimensions.length > 1 && (
+                          <Button variant="ghost" size="icon" onClick={() => removeDimension(i)}>
+                            <X className="h-4 w-4 text-gray-400" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                    <Button variant="link" onClick={addDimension} className="px-0 text-primary w-fit">
+                      + Adicionar outra medida
+                    </Button>
+                  </div>
+
                   <div className="grid gap-2">
                     <Label>Descrição</Label>
                     <Textarea
@@ -399,7 +510,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                   <Button
                     className={`w-full h-12 text-lg font-semibold rounded-xl shadow-lg transition-all active:scale-95 ${editingId ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-900 hover:bg-black"}`}
                     onClick={handleSaveProduct}
-                    disabled={loading}
+                    disabled={loading || uploading}
                   >
                     {loading ? (
                       <Loader2 className="mr-2 animate-spin" />
@@ -414,9 +525,8 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
               </Card>
             </div>
 
-            {/* DIREITA: SELETOR */}
             <div className="md:col-span-5 space-y-6">
-              <Card className="rounded-2xl border-gray-100 shadow-lg bg-white flex flex-col h-[800px]">
+              <Card className="rounded-2xl border-gray-100 shadow-lg bg-white flex flex-col h-[1150px]">
                 <CardHeader className="pb-4 px-6 pt-6 border-b border-gray-50 bg-blue-50/30">
                   <CardTitle className="text-lg font-medium flex items-center gap-2 text-blue-700">
                     <Building2 className="h-5 w-5" />
@@ -507,7 +617,6 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
           </div>
         </TabsContent>
 
-        {/* ABA: MEUS PRODUTOS */}
         <TabsContent value="products">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-gray-800">Meu Portfólio</h2>
@@ -534,7 +643,25 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                   key={product.id}
                   className="rounded-2xl border-gray-100 shadow-sm hover:shadow-md transition-all bg-white overflow-hidden group"
                 >
-                  <CardHeader className="pb-3 bg-gray-50/50 border-b border-gray-50 relative">
+                  <div className="h-48 bg-gray-100 relative overflow-hidden border-b border-gray-50">
+                    {product.image_url ? (
+                      <img
+                        src={product.image_url}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-gray-300">
+                        <ImageIcon className="h-10 w-10 opacity-50" />
+                      </div>
+                    )}
+                    <Badge
+                      variant="secondary"
+                      className="absolute top-3 left-3 bg-white/90 backdrop-blur text-xs shadow-sm"
+                    >
+                      {product.category}
+                    </Badge>
+                  </div>
+                  <CardHeader className="pb-3 pt-4 relative">
                     <div className="flex flex-col items-start gap-1 pr-20">
                       <div className="flex items-center gap-2 w-full">
                         <CardTitle className="text-lg font-medium text-gray-900 truncate">{product.name}</CardTitle>
@@ -542,10 +669,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                           {product.sku_manufacturer || "S/SKU"}
                         </Badge>
                       </div>
-                      <CardDescription>{product.category}</CardDescription>
                     </div>
-
-                    {/* AÇÕES DE EDIÇÃO/EXCLUSÃO - AGORA SEMPRE VISÍVEIS E CORRIGIDAS */}
                     <div className="absolute top-3 right-3 flex gap-2">
                       <Button
                         size="icon"
@@ -583,11 +707,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                       </AlertDialog>
                     </div>
                   </CardHeader>
-                  <CardContent className="p-5">
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Check className="h-4 w-4 text-green-500" />
-                      Ficha Técnica Ativa
-                    </div>
+                  <CardContent className="p-5 pt-0">
                     <p className="text-xs text-gray-400 mt-2">
                       Atualizado em {new Date(product.created_at).toLocaleDateString()}
                     </p>
@@ -596,7 +716,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                     <Button
                       variant="outline"
                       className="w-full rounded-xl group-hover:bg-gray-900 group-hover:text-white transition-colors"
-                      onClick={() => handleEditProduct(product)} // AGORA FUNCIONAL
+                      onClick={() => handleEditProduct(product)}
                     >
                       Ver Detalhes <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
