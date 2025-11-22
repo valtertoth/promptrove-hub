@@ -8,65 +8,149 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Package, Settings, LayoutDashboard, Save, Trash2, Image as ImageIcon } from "lucide-react";
+import {
+  Plus,
+  Package,
+  Settings,
+  LayoutDashboard,
+  Save,
+  Trash2,
+  Image as ImageIcon,
+  Check,
+  Loader2,
+} from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 
 interface FabricaDashboardProps {
   userId: string;
 }
 
-// Interface provisória para estruturar o cadastro
-interface ProductForm {
+// Interface do Material que vem do banco
+interface MaterialData {
+  id: string;
   name: string;
-  category: string;
-  description: string;
-  dimensions: string[]; // Ex: "200x100x75cm"
-  materials: { type: string; supplier: string; reference: string }[];
+  type: string;
+  sku_supplier: string;
+  image_url: string | null;
 }
 
 const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
   const { signOut } = useAuth();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
 
-  // Estado do Formulário de Produto
-  const [newProduct, setNewProduct] = useState<ProductForm>({
+  // Estados de Dados
+  const [availableMaterials, setAvailableMaterials] = useState<MaterialData[]>([]);
+  const [selectedMaterialIds, setSelectedMaterialIds] = useState<string[]>([]);
+
+  // Estado do Formulário
+  const [newProduct, setNewProduct] = useState({
     name: "",
     category: "",
+    sku: "",
     description: "",
     dimensions: [""],
-    materials: [],
   });
 
-  // Adicionar nova dimensão dinâmica
-  const addDimension = () => {
-    setNewProduct({ ...newProduct, dimensions: [...newProduct.dimensions, ""] });
-  };
+  // 1. Buscar Materiais Reais ao carregar
+  useEffect(() => {
+    const fetchMaterials = async () => {
+      const { data, error } = await supabase.from("materials").select("*").order("type", { ascending: true });
 
-  // Atualizar dimensão específica
-  const updateDimension = (index: number, value: string) => {
-    const updatedDimensions = [...newProduct.dimensions];
-    updatedDimensions[index] = value;
-    setNewProduct({ ...newProduct, dimensions: updatedDimensions });
-  };
+      if (data) setAvailableMaterials(data);
+    };
+    fetchMaterials();
+  }, []);
 
-  // Remover dimensão
+  // Helpers de Dimensão
+  const addDimension = () => setNewProduct({ ...newProduct, dimensions: [...newProduct.dimensions, ""] });
+  const updateDimension = (index: number, val: string) => {
+    const dims = [...newProduct.dimensions];
+    dims[index] = val;
+    setNewProduct({ ...newProduct, dimensions: dims });
+  };
   const removeDimension = (index: number) => {
-    const updatedDimensions = newProduct.dimensions.filter((_, i) => i !== index);
-    setNewProduct({ ...newProduct, dimensions: updatedDimensions });
+    const dims = newProduct.dimensions.filter((_, i) => i !== index);
+    setNewProduct({ ...newProduct, dimensions: dims });
   };
 
-  const handleSaveProduct = async () => {
-    // Lógica de salvamento será implementada na Fase 2 (Integração com Supabase)
-    console.log("Produto para salvar:", newProduct);
-    toast({
-      title: "Funcionalidade em Desenvolvimento",
-      description: "O layout do formulário está pronto. A gravação no banco será o próximo passo.",
-    });
+  // Helper de Seleção de Material
+  const toggleMaterial = (id: string) => {
+    if (selectedMaterialIds.includes(id)) {
+      setSelectedMaterialIds(selectedMaterialIds.filter((mId) => mId !== id));
+    } else {
+      setSelectedMaterialIds([...selectedMaterialIds, id]);
+    }
   };
+
+  // SALVAR PRODUTO (Lógica Pesada)
+  const handleSaveProduct = async () => {
+    if (!newProduct.name || !newProduct.category) {
+      toast({ title: "Erro", description: "Nome e Categoria são obrigatórios.", variant: "destructive" });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // 1. Salvar o Produto
+      const { data: productData, error: productError } = await supabase
+        .from("products")
+        .insert({
+          manufacturer_id: userId,
+          name: newProduct.name,
+          category: newProduct.category,
+          sku_manufacturer: newProduct.sku,
+          description: newProduct.description,
+          dimensions: newProduct.dimensions, // Supabase aceita Array de texto
+        })
+        .select()
+        .single();
+
+      if (productError) throw productError;
+
+      // 2. Criar os Vínculos (Produto <-> Materiais)
+      if (selectedMaterialIds.length > 0 && productData) {
+        const links = selectedMaterialIds.map((materialId) => ({
+          product_id: productData.id,
+          material_id: materialId,
+        }));
+
+        const { error: linkError } = await supabase.from("product_materials").insert(links);
+
+        if (linkError) throw linkError;
+      }
+
+      toast({
+        title: "Produto Publicado!",
+        description: `${selectedMaterialIds.length} materiais vinculados com sucesso.`,
+        className: "bg-green-600 text-white border-none",
+      });
+
+      // Reset
+      setNewProduct({ name: "", category: "", sku: "", description: "", dimensions: [""] });
+      setSelectedMaterialIds([]);
+    } catch (error: any) {
+      toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Agrupar materiais por tipo para exibição
+  const groupedMaterials = availableMaterials.reduce(
+    (acc, material) => {
+      if (!acc[material.type]) acc[material.type] = [];
+      acc[material.type].push(material);
+      return acc;
+    },
+    {} as Record<string, MaterialData[]>,
+  );
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] p-6 md:p-10">
-      {/* Cabeçalho Superior */}
+    <div className="min-h-screen bg-[#F8F9FA] p-6 md:p-10 font-sans text-slate-800">
+      {/* Cabeçalho */}
       <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-light tracking-tight text-gray-900">
@@ -88,19 +172,12 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
         </div>
       </header>
 
-      {/* Área Principal com Abas */}
-      <Tabs defaultValue="overview" className="space-y-6">
+      <Tabs defaultValue="new-product" className="space-y-6">
         <TabsList className="bg-white/80 backdrop-blur-sm p-1 rounded-2xl border border-gray-200/50 shadow-sm w-full md:w-auto inline-flex">
-          <TabsTrigger
-            value="overview"
-            className="rounded-xl data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 px-6"
-          >
+          <TabsTrigger value="overview" className="rounded-xl px-6">
             <LayoutDashboard className="mr-2 h-4 w-4" /> Visão Geral
           </TabsTrigger>
-          <TabsTrigger
-            value="products"
-            className="rounded-xl data-[state=active]:bg-gray-100 data-[state=active]:text-gray-900 px-6"
-          >
+          <TabsTrigger value="products" className="rounded-xl px-6">
             <Package className="mr-2 h-4 w-4" /> Meus Produtos
           </TabsTrigger>
           <TabsTrigger
@@ -111,69 +188,47 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
           </TabsTrigger>
         </TabsList>
 
-        {/* ABA: Visão Geral */}
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-3">
-            <Card className="rounded-2xl border-gray-100 shadow-sm bg-white/80 backdrop-blur">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-500">Produtos Ativos</CardTitle>
-                <Package className="h-4 w-4 text-gray-400" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-gray-900">0</div>
-                <p className="text-xs text-gray-400 mt-1">Cadastrados na plataforma</p>
-              </CardContent>
-            </Card>
-            {/* Espaço para mais cards (Vendas, Especificadores, etc) */}
-          </div>
-        </TabsContent>
-
-        {/* ABA: Novo Produto (O Foco da nossa tarefa) */}
         <TabsContent value="new-product">
           <div className="grid gap-8 md:grid-cols-3">
-            {/* Coluna Esquerda: Dados Básicos */}
+            {/* ESQUERDA: DADOS */}
             <div className="md:col-span-2 space-y-6">
-              {/* 1. Informações Básicas */}
-              <Card className="rounded-2xl border-gray-100 shadow-lg bg-white overflow-hidden">
-                <CardHeader className="bg-gray-50/50 border-b border-gray-100 pb-4">
+              <Card className="rounded-2xl border-gray-100 shadow-lg bg-white">
+                <CardHeader className="bg-gray-50/40 border-b border-gray-100 pb-4">
                   <CardTitle className="text-lg font-medium">Informações do Produto</CardTitle>
-                  <CardDescription>Detalhes essenciais para especificação.</CardDescription>
                 </CardHeader>
                 <CardContent className="p-6 space-y-6">
                   <div className="grid gap-2">
-                    <Label htmlFor="name">Nome do Produto</Label>
+                    <Label>Nome do Produto</Label>
                     <Input
-                      id="name"
-                      placeholder="Ex: Mesa de Jantar Toth"
-                      className="rounded-xl border-gray-200 bg-gray-50/30 focus:bg-white transition-all"
+                      className="h-12 rounded-xl bg-gray-50/30"
+                      placeholder="Ex: Mesa Jantar Orgânica"
                       value={newProduct.name}
                       onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
                     />
                   </div>
-
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
-                      <Label htmlFor="category">Categoria</Label>
+                      <Label>Categoria</Label>
                       <Input
-                        id="category"
-                        placeholder="Ex: Mesa, Cadeira, Sofá"
-                        className="rounded-xl border-gray-200 bg-gray-50/30"
+                        className="h-12 rounded-xl bg-gray-50/30"
+                        placeholder="Mesa, Cadeira..."
                         value={newProduct.category}
                         onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
                       />
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="sku">Código Interno (SKU)</Label>
-                      <Input id="sku" placeholder="Opcional" className="rounded-xl border-gray-200 bg-gray-50/30" />
+                      <Label>SKU (Opcional)</Label>
+                      <Input
+                        className="h-12 rounded-xl bg-gray-50/30"
+                        value={newProduct.sku}
+                        onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })}
+                      />
                     </div>
                   </div>
-
                   <div className="grid gap-2">
-                    <Label htmlFor="description">Descrição Comercial</Label>
+                    <Label>Descrição Comercial</Label>
                     <Textarea
-                      id="description"
-                      placeholder="Descreva os diferenciais, inspiração e detalhes técnicos..."
-                      className="min-h-[120px] rounded-xl border-gray-200 bg-gray-50/30 resize-none"
+                      className="min-h-[100px] rounded-xl bg-gray-50/30"
                       value={newProduct.description}
                       onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
                     />
@@ -181,146 +236,113 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                 </CardContent>
               </Card>
 
-              {/* 2. Bloco de Variações / Dimensões */}
               <Card className="rounded-2xl border-gray-100 shadow-lg bg-white">
                 <CardHeader className="pb-4">
-                  <CardTitle className="text-lg font-medium">Dimensões Disponíveis</CardTitle>
-                  <CardDescription>Adicione todas as medidas que você fabrica este modelo.</CardDescription>
+                  <CardTitle className="text-lg font-medium">Dimensões</CardTitle>
                 </CardHeader>
-                <CardContent className="p-6 space-y-4">
-                  {newProduct.dimensions.map((dim, index) => (
-                    <div key={index} className="flex gap-3 items-center">
+                <CardContent className="p-6 space-y-3">
+                  {newProduct.dimensions.map((dim, i) => (
+                    <div key={i} className="flex gap-2">
                       <Input
-                        placeholder="Ex: 200cm x 100cm x 75cm"
+                        className="h-10 rounded-xl bg-gray-50/30"
                         value={dim}
-                        onChange={(e) => updateDimension(index, e.target.value)}
-                        className="rounded-xl"
+                        onChange={(e) => updateDimension(i, e.target.value)}
+                        placeholder="200x100x75cm"
                       />
-                      {newProduct.dimensions.length > 1 && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeDimension(index)}
-                          className="text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={addDimension}
-                    className="rounded-xl mt-2 border-dashed border-gray-300 text-gray-500 hover:border-primary hover:text-primary"
-                  >
-                    <Plus className="mr-2 h-4 w-4" /> Adicionar Medida
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* 3. Bloco de Materiais / Acabamentos (NOVO) */}
-              <Card className="rounded-2xl border-gray-100 shadow-lg bg-white">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-lg font-medium">Acabamentos & Materiais</CardTitle>
-                  <CardDescription>
-                    Selecione os fornecedores e materiais homologados para este produto.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                  {/* Exemplo Visual de Categorias de Material */}
-                  <div className="space-y-4">
-                    {/* Grupo Madeiras */}
-                    <div className="p-4 border border-gray-100 rounded-xl bg-gray-50/50">
-                      <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-orange-400"></span>
-                        Madeiras / Lâminas
-                      </h4>
-                      <div className="grid gap-3">
-                        {/* Item Simulado 1 */}
-                        <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-amber-800 rounded-full"></div>
-                            <div>
-                              <p className="text-sm font-medium">Nogueira Americana</p>
-                              <p className="text-xs text-gray-400">Fornecedor: Madeiras do Brasil</p>
-                            </div>
-                          </div>
-                          <Button variant="outline" size="sm" className="h-7 text-xs rounded-lg">
-                            Selecionar
-                          </Button>
-                        </div>
-
-                        {/* Item Simulado 2 */}
-                        <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200 shadow-sm">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-amber-200 rounded-full"></div>
-                            <div>
-                              <p className="text-sm font-medium">Cinamomo Natural</p>
-                              <p className="text-xs text-gray-400">Fornecedor: Laminados Sul</p>
-                            </div>
-                          </div>
-                          <Button variant="outline" size="sm" className="h-7 text-xs rounded-lg">
-                            Selecionar
-                          </Button>
-                        </div>
-                      </div>
-                      <Button variant="link" className="text-primary text-xs mt-2 h-auto p-0">
-                        + Buscar mais madeiras
+                      <Button variant="ghost" onClick={() => removeDimension(i)}>
+                        <Trash2 className="h-4 w-4 text-red-400" />
                       </Button>
                     </div>
-
-                    {/* Grupo Tecidos (Vazio para exemplo) */}
-                    <div className="p-4 border border-gray-100 rounded-xl bg-gray-50/50">
-                      <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-blue-400"></span>
-                        Tecidos
-                      </h4>
-                      <div className="text-center py-4 text-gray-400 text-sm">
-                        Nenhum tecido selecionado.
-                        <br />
-                        <Button variant="outline" size="sm" className="mt-2 rounded-lg">
-                          Adicionar Tecido
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
+                  ))}
+                  <Button variant="link" onClick={addDimension} className="px-0 text-primary">
+                    + Adicionar Medida
+                  </Button>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Coluna Direita: Mídia e Ações */}
+            {/* DIREITA: MATERIAIS E SALVAR */}
             <div className="space-y-6">
-              <Card className="rounded-2xl border-gray-100 shadow-lg bg-white">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-lg font-medium">Imagem Principal</CardTitle>
+              {/* BLOCO DE MATERIAIS REAIS */}
+              <Card className="rounded-2xl border-gray-100 shadow-lg bg-white flex flex-col h-[500px]">
+                <CardHeader className="pb-2 px-6 pt-6">
+                  <CardTitle className="text-lg font-medium">Acabamentos & Materiais</CardTitle>
+                  <CardDescription>Selecione o que compõe este produto.</CardDescription>
                 </CardHeader>
-                <CardContent className="p-6">
-                  <div className="border-2 border-dashed border-gray-200 rounded-2xl h-48 flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 hover:border-primary/50 transition-all cursor-pointer bg-gray-50/50">
-                    <ImageIcon className="h-10 w-10 mb-2 opacity-50" />
-                    <span className="text-sm">Clique para upload</span>
-                  </div>
+                <CardContent className="flex-1 overflow-hidden p-0">
+                  <ScrollArea className="h-full px-6 pb-6">
+                    {availableMaterials.length === 0 ? (
+                      <div className="text-center py-10 text-gray-400 text-sm">
+                        Nenhum material cadastrado por fornecedores ainda.
+                      </div>
+                    ) : (
+                      <div className="space-y-6 pt-2">
+                        {Object.entries(groupedMaterials).map(([type, list]) => (
+                          <div key={type}>
+                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">{type}</h4>
+                            <div className="space-y-2">
+                              {list.map((mat) => {
+                                const isSelected = selectedMaterialIds.includes(mat.id);
+                                return (
+                                  <div
+                                    key={mat.id}
+                                    onClick={() => toggleMaterial(mat.id)}
+                                    className={`
+                                                            group flex items-center gap-3 p-2 rounded-xl border cursor-pointer transition-all
+                                                            ${isSelected ? "border-primary bg-primary/5" : "border-gray-100 hover:border-gray-300 bg-white"}
+                                                        `}
+                                  >
+                                    {/* Mini Preview da Imagem */}
+                                    <div className="h-10 w-10 rounded-lg bg-gray-200 overflow-hidden flex-shrink-0">
+                                      {mat.image_url ? (
+                                        <img src={mat.image_url} className="w-full h-full object-cover" />
+                                      ) : (
+                                        <ImageIcon className="h-5 w-5 m-auto text-gray-400 mt-2.5" />
+                                      )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p
+                                        className={`text-sm font-medium truncate ${isSelected ? "text-primary" : "text-gray-700"}`}
+                                      >
+                                        {mat.name}
+                                      </p>
+                                      <p className="text-xs text-gray-400 truncate">Ref: {mat.sku_supplier || "S/N"}</p>
+                                    </div>
+                                    {isSelected && <Check className="h-4 w-4 text-primary" />}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </ScrollArea>
                 </CardContent>
+                <div className="p-4 border-t border-gray-100 bg-gray-50/50 rounded-b-2xl text-xs text-center text-gray-500">
+                  {selectedMaterialIds.length} materiais selecionados
+                </div>
               </Card>
 
               <Card className="rounded-2xl border-gray-100 shadow-lg bg-white">
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium text-gray-600">Status do Cadastro</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="p-4">
                   <Button
-                    className="w-full rounded-xl font-medium shadow-lg shadow-primary/20"
+                    className="w-full h-12 text-lg font-semibold rounded-xl bg-gray-900 hover:bg-black shadow-lg shadow-gray-900/20"
                     onClick={handleSaveProduct}
+                    disabled={loading}
                   >
-                    <Save className="mr-2 h-4 w-4" /> Publicar Produto
-                  </Button>
-                  <Button variant="ghost" className="w-full rounded-xl text-gray-500">
-                    Salvar como Rascunho
+                    {loading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+                    Publicar Produto
                   </Button>
                 </CardContent>
               </Card>
             </div>
           </div>
+        </TabsContent>
+
+        {/* Placeholder para aba Listagem */}
+        <TabsContent value="products" className="text-center py-10 text-gray-400">
+          Lista de produtos será implementada na próxima etapa (Visualização da Vitrine).
         </TabsContent>
       </Tabs>
     </div>
