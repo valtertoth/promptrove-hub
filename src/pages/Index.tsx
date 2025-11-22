@@ -1,294 +1,264 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { ArrowRight, Building2, Users, Package, Sparkles, CheckCircle, Zap } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { motion, useScroll, useTransform } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { ArrowRight, Layers, PenTool, Factory, ChevronDown, Star } from "lucide-react";
 
 const Index = () => {
-  const { user, loading } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState({ fabricas: 0, especificadores: 0, fornecedores: 0 });
+  const { scrollY } = useScroll();
+  const y1 = useTransform(scrollY, [0, 500], [0, 200]);
+  const y2 = useTransform(scrollY, [0, 500], [0, -150]);
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
-  const fetchStats = async () => {
-    try {
-      const [fabricasRes, especificadoresRes, fornecedoresRes] = await Promise.all([
-        supabase.from('fabrica').select('id', { count: 'exact', head: true }),
-        supabase.from('especificador').select('id', { count: 'exact', head: true }),
-        supabase.from('fornecedor').select('id', { count: 'exact', head: true })
-      ]);
-
-      setStats({
-        fabricas: fabricasRes.count || 0,
-        especificadores: especificadoresRes.count || 0,
-        fornecedores: fornecedoresRes.count || 0
-      });
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    }
-  };
+  // Efeito de "Noise" (Granulado) no fundo para textura de papel/concreto
+  const noiseBg =
+    "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E\")";
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
-      {/* Floating background elements */}
-      <div className="absolute inset-0 hero-gradient" />
-      <div className="absolute top-20 left-10 w-72 h-72 bg-primary/10 rounded-full blur-3xl animate-float" />
-      <div className="absolute bottom-20 right-10 w-96 h-96 bg-accent/10 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }} />
-      
-      {/* Admin Access - Se usuário é admin */}
-      {user && (
-        <div className="absolute top-4 right-4 z-50">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={async () => {
-              const { data } = await supabase
-                .from('user_roles')
-                .select('role')
-                .eq('user_id', user.id)
-                .eq('role', 'admin')
-                .maybeSingle();
-              
-              if (data) {
-                navigate('/dashboard');
-              }
-            }}
+    <div className="min-h-screen bg-[#FAFAF9] text-[#1C1917] overflow-x-hidden font-sans selection:bg-[#103927] selection:text-white">
+      {/* NAVBAR FLUTUANTE */}
+      <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 py-6 mix-blend-difference text-white">
+        <div className="text-2xl font-serif font-bold tracking-tighter">Specify.</div>
+        <div className="flex gap-6 text-sm font-medium tracking-wide">
+          <button onClick={() => navigate("/auth")} className="hover:underline underline-offset-4 transition-all">
+            Login
+          </button>
+          <button
+            onClick={() => navigate("/auth")}
+            className="px-5 py-2 bg-white text-black rounded-full hover:bg-gray-200 transition-all"
           >
-            Admin
-          </Button>
+            Começar
+          </button>
         </div>
-      )}
-      
-      {/* Hero Section */}
-      <div className="container mx-auto px-4 py-32 relative z-10">
-        <div className="text-center max-w-5xl mx-auto mb-24 animate-fade-in-up">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border border-primary/20 mb-8 animate-scale-in">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <span className="text-sm font-medium text-foreground">Inovação em Especificação Premium</span>
-          </div>
+      </nav>
 
-          <h1 className="text-6xl md:text-8xl font-bold mb-8 tracking-tight">
-            <span className="bg-gradient-primary bg-clip-text text-transparent">
-              O Futuro
-            </span>
-            <br />
-            <span className="text-foreground">da Especificação</span>
-          </h1>
-          
-          <p className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed">
-            Conectando fábricas de móveis de alto padrão com especificadores e fornecedores 
-            através de tecnologia de ponta e design excepcional
-          </p>
+      {/* HERO SECTION - "THE DARK ROOM" */}
+      <section className="relative h-screen bg-[#103927] text-[#FAFAF9] flex flex-col items-center justify-center px-6 overflow-hidden">
+        <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: noiseBg }}></div>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Button 
-              size="lg" 
-              className="btn-premium bg-primary hover:bg-primary-hover text-primary-foreground text-lg px-8 py-6 h-auto rounded-2xl shadow-elegant hover:shadow-2xl transition-all duration-300 group"
-              onClick={() => navigate('/catalogo')}
-            >
-              Explorar Catálogo
-              <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-            </Button>
-            <Button 
-              size="lg" 
-              variant="outline"
-              className="btn-premium text-lg px-8 py-6 h-auto rounded-2xl border-2 hover:bg-accent/10 hover:border-accent transition-all duration-300"
-              onClick={() => navigate(user ? '/dashboard' : '/auth')}
-            >
-              {user ? 'Ir para Dashboard' : 'Começar Gratuitamente'}
-            </Button>
-          </div>
-        </div>
+        {/* Elementos Decorativos de Fundo */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 0.4, scale: 1 }}
+          transition={{ duration: 2, ease: "easeOut" }}
+          className="absolute w-[500px] h-[500px] rounded-full bg-[#1a5c3d] blur-[120px] -top-20 -left-20"
+        />
 
-        {/* Stats Section - Platform Participants */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-32 max-w-4xl mx-auto">
-          {[
-            { icon: Building2, label: 'Fábricas Cadastradas', value: stats.fabricas, color: 'text-primary' },
-            { icon: Users, label: 'Especificadores Ativos', value: stats.especificadores, color: 'text-accent' },
-            { icon: Package, label: 'Fornecedores Premium', value: stats.fornecedores, color: 'text-primary' },
-          ].map((stat, index) => (
-            <div 
-              key={index}
-              className="glass rounded-2xl p-6 text-center animate-scale-in hover:scale-105 transition-transform duration-300"
-              style={{ animationDelay: `${index * 0.1}s` }}
-            >
-              <stat.icon className={`h-8 w-8 ${stat.color} mx-auto mb-3`} />
-              <div className="text-4xl font-bold text-foreground mb-1">{stat.value}</div>
-              <div className="text-sm text-muted-foreground">{stat.label}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Features Grid - Clickable Role Cards */}
-        <div className="grid md:grid-cols-3 gap-8 mb-32">
-          {[
-            {
-              icon: Building2,
-              title: 'Para Fábricas',
-              description: 'Plataforma completa para gerenciar produtos premium, variações e acabamentos. Conecte-se com especificadores qualificados e expanda sua rede de negócios.',
-              gradient: 'from-primary/20 to-primary/5',
-            },
-            {
-              icon: Users,
-              title: 'Para Especificadores',
-              description: 'Acesso exclusivo a catálogos premium e perfis detalhados das melhores fábricas. Arquitetos, designers e lojas especializadas em um ecossistema único.',
-              gradient: 'from-accent/20 to-accent/5',
-            },
-            {
-              icon: Package,
-              title: 'Para Fornecedores',
-              description: 'Disponibilize materiais premium (tecidos, cordas, alumínios, madeiras) e conecte-se diretamente com as principais fábricas do mercado.',
-              gradient: 'from-primary/20 to-accent/10',
-            },
-          ].map((feature, index) => (
-            <button
-              key={index}
-              onClick={() => navigate('/auth')}
-              className="card-premium text-center group animate-scale-in cursor-pointer hover:border-primary/50 transition-all duration-300 w-full"
-              style={{ animationDelay: `${index * 0.15}s` }}
-            >
-              <div className={`w-20 h-20 bg-gradient-to-br ${feature.gradient} rounded-3xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300`}>
-                <feature.icon className="h-10 w-10 text-primary" />
-              </div>
-              <h3 className="text-2xl font-bold mb-4 text-foreground">{feature.title}</h3>
-              <p className="text-muted-foreground leading-relaxed mb-4">
-                {feature.description}
-              </p>
-              <div className="flex items-center justify-center gap-2 text-primary text-sm font-medium">
-                <span>Criar conta</span>
-                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </button>
-          ))}
-        </div>
-
-        {/* Platform Benefits Section */}
-        <div className="mb-32">
-          <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border border-primary/20 mb-6">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium text-foreground">Transformação Digital</span>
-            </div>
-            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">
-              Como transformamos cada segmento
-            </h2>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Trazemos qualidade, padronização, profissionalismo e credibilidade para todo o ecossistema
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                icon: Building2,
-                title: 'Fábricas',
-                benefits: [
-                  'Visibilidade nacional para produtos premium',
-                  'Conexão direta com especificadores qualificados',
-                  'Gestão profissional de catálogo e variações',
-                  'Avaliações e credibilidade de mercado',
-                  'Informações técnicas padronizadas'
-                ],
-                gradient: 'from-primary/10 to-primary/5'
-              },
-              {
-                icon: Users,
-                title: 'Especificadores',
-                benefits: [
-                  'Acesso a catálogos premium verificados',
-                  'Informação técnica detalhada e confiável',
-                  'Avaliação de mercado e referências',
-                  'Decisões de compra mais seguras',
-                  'Networking com fornecedores de qualidade'
-                ],
-                gradient: 'from-accent/10 to-accent/5'
-              },
-              {
-                icon: Package,
-                title: 'Fornecedores',
-                benefits: [
-                  'Conexão direta com grandes fábricas',
-                  'Credibilidade através de avaliações',
-                  'Padronização de informações técnicas',
-                  'Visibilidade no mercado premium',
-                  'Crescimento sustentável do negócio'
-                ],
-                gradient: 'from-primary/10 to-accent/5'
-              }
-            ].map((segment, index) => (
-              <div 
-                key={index}
-                className="card-premium group animate-scale-in"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <div className={`w-16 h-16 bg-gradient-to-br ${segment.gradient} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
-                  <segment.icon className="h-8 w-8 text-primary" />
-                </div>
-                <h3 className="text-2xl font-bold mb-6 text-foreground">{segment.title}</h3>
-                <ul className="space-y-3 text-left">
-                  {segment.benefits.map((benefit, idx) => (
-                    <li key={idx} className="flex items-start gap-3 text-muted-foreground">
-                      <CheckCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                      <span className="leading-relaxed">{benefit}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Technology Section */}
-        <div className="card-premium p-16 text-center mb-32 animate-scale-in overflow-hidden relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5" />
-          <div className="relative z-10">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
-              <Zap className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium text-foreground">Tecnologia de Ponta</span>
-            </div>
-            <h2 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">
-              Design. Inovação. Excelência.
-            </h2>
-            <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Nossa plataforma foi construída com as tecnologias mais modernas para oferecer 
-              a melhor experiência em especificação de produtos premium
-            </p>
-            <div className="flex flex-wrap gap-4 justify-center">
-              {['Busca Inteligente', 'Filtros Avançados', 'Upload de Imagens', 'Gestão Completa'].map((tech, index) => (
-                <span 
-                  key={index}
-                  className="px-6 py-3 rounded-xl bg-background/50 border border-border/50 text-sm font-medium text-foreground hover:border-primary/50 transition-colors"
-                >
-                  {tech}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* CTA Section */}
-        <div className="text-center card-premium p-16 animate-scale-in bg-gradient-to-br from-primary/5 to-accent/5">
-          <h2 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">
-            Pronto para revolucionar seu negócio?
+        <motion.div
+          initial={{ opacity: 0, y: 100 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1, delay: 0.2 }}
+          className="z-10 text-center max-w-5xl space-y-8"
+        >
+          <h2 className="text-sm md:text-base font-sans tracking-[0.3em] uppercase opacity-70 border border-white/20 rounded-full px-4 py-1 inline-block">
+            O Ecossistema do Design
           </h2>
-          <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-            Junte-se às melhores fábricas e especificadores do mercado premium
+          <h1 className="text-6xl md:text-9xl font-serif font-medium leading-[0.9] tracking-tight">
+            A Engenharia <br />
+            <span className="italic text-[#D4AF37]">do Belo.</span>
+          </h1>
+          <p className="text-lg md:text-xl font-light opacity-80 max-w-2xl mx-auto leading-relaxed">
+            Conectamos a matéria-prima bruta à curadoria fina. <br />A plataforma definitiva para Fornecedores, Fábricas
+            e Especificadores.
           </p>
-          <Button 
-            size="lg" 
-            className="btn-premium bg-primary hover:bg-primary-hover text-primary-foreground text-lg px-10 py-7 h-auto rounded-2xl shadow-elegant hover:shadow-2xl transition-all duration-300 group"
-            onClick={() => navigate('/auth')}
-          >
-            Criar Conta Gratuitamente
-            <ArrowRight className="ml-2 h-6 w-6 group-hover:translate-x-1 transition-transform" />
-          </Button>
+
+          <div className="pt-8 flex flex-col md:flex-row gap-4 justify-center">
+            <Button
+              onClick={() => navigate("/auth")}
+              className="h-14 px-8 rounded-full bg-[#D4AF37] text-[#103927] hover:bg-[#c4a02e] text-lg font-medium transition-all duration-300 shadow-[0_0_30px_-10px_rgba(212,175,55,0.6)]"
+            >
+              Solicitar Acesso Exclusivo
+            </Button>
+            <Button
+              onClick={() => document.getElementById("concept")?.scrollIntoView({ behavior: "smooth" })}
+              variant="outline"
+              className="h-14 px-8 rounded-full border-white/20 text-white hover:bg-white/10 text-lg font-medium"
+            >
+              Conhecer o Processo
+            </Button>
+          </div>
+        </motion.div>
+
+        <motion.div
+          animate={{ y: [0, 10, 0] }}
+          transition={{ repeat: Infinity, duration: 2 }}
+          className="absolute bottom-10 opacity-50"
+        >
+          <ChevronDown className="w-8 h-8" />
+        </motion.div>
+      </section>
+
+      {/* SECTION 2: A TRÍADE (CONCEITO VISUAL) */}
+      <section id="concept" className="py-32 px-6 md:px-20 bg-[#FAFAF9] relative">
+        <div className="absolute inset-0 opacity-40 pointer-events-none" style={{ backgroundImage: noiseBg }}></div>
+
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-24 text-center">
+            <h3 className="text-4xl md:text-6xl font-serif text-[#1C1917] mb-6">A Cadeia de Valor</h3>
+            <p className="text-xl text-[#1C1917]/60 max-w-2xl mx-auto font-light">
+              Onde a inspiração encontra a execução técnica. Uma linha contínua de qualidade e procedência.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
+            {/* CARD 1: FORNECEDOR */}
+            <motion.div style={{ y: y1 }} className="group">
+              <div className="h-[500px] bg-[#E5E5E5] rounded-[2rem] overflow-hidden relative mb-6 shadow-2xl">
+                {/* Imagem Conceitual (Placeholder Premium) */}
+                <img
+                  src="https://images.unsplash.com/photo-1513161455079-7dc1de15ef3e?q=80&w=1376&auto=format&fit=crop"
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 grayscale group-hover:grayscale-0"
+                  alt="Madeira Bruta"
+                />
+                <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></div>
+                <div className="absolute top-6 left-6 bg-white/90 backdrop-blur px-4 py-1 rounded-full text-xs font-bold tracking-widest uppercase">
+                  Origem
+                </div>
+              </div>
+              <h4 className="text-3xl font-serif mb-2 flex items-center gap-3">
+                <Layers className="w-6 h-6 text-[#103927]" /> Fornecedores
+              </h4>
+              <p className="text-[#1C1917]/70 leading-relaxed">
+                O acervo de matérias-primas. Cadastre texturas, lâminas e metais para serem descobertos pelas melhores
+                indústrias.
+              </p>
+            </motion.div>
+
+            {/* CARD 2: FÁBRICA */}
+            <motion.div className="group md:mt-20">
+              <div className="h-[500px] bg-[#E5E5E5] rounded-[2rem] overflow-hidden relative mb-6 shadow-2xl">
+                <img
+                  src="https://images.unsplash.com/photo-1611486212557-79be6ebfa669?q=80&w=1470&auto=format&fit=crop"
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 grayscale group-hover:grayscale-0"
+                  alt="Produção"
+                />
+                <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></div>
+                <div className="absolute top-6 left-6 bg-white/90 backdrop-blur px-4 py-1 rounded-full text-xs font-bold tracking-widest uppercase">
+                  Transformação
+                </div>
+              </div>
+              <h4 className="text-3xl font-serif mb-2 flex items-center gap-3">
+                <Factory className="w-6 h-6 text-[#103927]" /> Fábricas
+              </h4>
+              <p className="text-[#1C1917]/70 leading-relaxed">
+                Engenharia de produto. Crie fichas técnicas vivas, homologue fornecedores e apresente seu portfólio para
+                o mercado.
+              </p>
+            </motion.div>
+
+            {/* CARD 3: ESPECIFICADOR */}
+            <motion.div style={{ y: y2 }} className="group md:mt-40">
+              <div className="h-[500px] bg-[#E5E5E5] rounded-[2rem] overflow-hidden relative mb-6 shadow-2xl">
+                <img
+                  src="https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?q=80&w=1374&auto=format&fit=crop"
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 grayscale group-hover:grayscale-0"
+                  alt="Ambiente Pronto"
+                />
+                <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors"></div>
+                <div className="absolute top-6 left-6 bg-white/90 backdrop-blur px-4 py-1 rounded-full text-xs font-bold tracking-widest uppercase">
+                  Curadoria
+                </div>
+              </div>
+              <h4 className="text-3xl font-serif mb-2 flex items-center gap-3">
+                <PenTool className="w-6 h-6 text-[#103927]" /> Especificadores
+              </h4>
+              <p className="text-[#1C1917]/70 leading-relaxed">
+                Arquitetos e Designers. Acesse produtos exclusivos, solicite credenciamento e garanta a execução
+                perfeita.
+              </p>
+            </motion.div>
+          </div>
         </div>
-      </div>
+      </section>
+
+      {/* SECTION 3: O SOFTWARE (PROOF) */}
+      <section className="py-32 bg-[#103927] text-[#FAFAF9] overflow-hidden">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center gap-16">
+          <div className="md:w-1/2 space-y-8">
+            <h3 className="text-5xl font-serif leading-tight">
+              Tecnologia invisível para <br />
+              <span className="text-[#D4AF37] italic">controle total.</span>
+            </h3>
+            <p className="text-lg opacity-80 font-light leading-relaxed">
+              Esqueça planilhas e PDFs desatualizados. O Specify é um organismo vivo onde cada alteração na
+              matéria-prima reflete instantaneamente no produto final.
+            </p>
+            <ul className="space-y-4 mt-8">
+              {[
+                "Gestão de Ficha Técnica em Nuvem",
+                "Marketplace B2B com Aprovação",
+                "Catálogo de Texturas Realistas",
+              ].map((item) => (
+                <li key={item} className="flex items-center gap-3 text-lg">
+                  <div className="w-6 h-6 rounded-full bg-[#D4AF37] flex items-center justify-center text-[#103927]">
+                    <Star className="w-3 h-3 fill-current" />
+                  </div>
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <Button
+              onClick={() => navigate("/auth")}
+              className="mt-8 h-12 px-8 rounded-full bg-white text-[#103927] hover:bg-gray-100 font-medium"
+            >
+              Começar Agora
+            </Button>
+          </div>
+
+          {/* Mockup do Software (Abstrato) */}
+          <div className="md:w-1/2 relative">
+            <div className="absolute inset-0 bg-[#D4AF37] blur-[100px] opacity-20"></div>
+            <motion.div
+              initial={{ rotateX: 10, rotateY: -10, rotateZ: 2 }}
+              whileHover={{ rotateX: 0, rotateY: 0, rotateZ: 0 }}
+              transition={{ duration: 0.5 }}
+              className="relative z-10 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-2xl"
+            >
+              {/* Simulação de Interface Minimalista */}
+              <div className="flex gap-2 mb-6">
+                <div className="w-3 h-3 rounded-full bg-red-400"></div>
+                <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
+                <div className="w-3 h-3 rounded-full bg-green-400"></div>
+              </div>
+              <div className="space-y-4">
+                <div className="h-8 w-1/3 bg-white/20 rounded-lg"></div>
+                <div className="flex gap-4">
+                  <div className="h-32 w-32 bg-white/10 rounded-xl border border-white/10"></div>
+                  <div className="flex-1 space-y-3">
+                    <div className="h-4 w-full bg-white/20 rounded"></div>
+                    <div className="h-4 w-3/4 bg-white/20 rounded"></div>
+                    <div className="h-4 w-1/2 bg-white/20 rounded"></div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-4 mt-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-24 bg-white/5 rounded-xl border border-white/10"></div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="bg-[#0A261A] text-[#FAFAF9]/60 py-12 px-6 border-t border-white/10">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="text-2xl font-serif font-bold text-white tracking-tighter">Specify.</div>
+          <div className="text-sm flex gap-8">
+            <a href="#" className="hover:text-white transition-colors">
+              Manifesto
+            </a>
+            <a href="#" className="hover:text-white transition-colors">
+              Para Fábricas
+            </a>
+            <a href="#" className="hover:text-white transition-colors">
+              Para Arquitetos
+            </a>
+          </div>
+          <div className="text-xs">© 2025 Specify Ecosystem. All rights reserved.</div>
+        </div>
+      </footer>
     </div>
   );
 };
