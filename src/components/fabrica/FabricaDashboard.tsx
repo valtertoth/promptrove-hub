@@ -507,7 +507,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
           </div>
         </TabsContent>
 
-        {/* ABA: MEUS PRODUTOS (CORRIGIDA) */}
+        {/* ABA: MEUS PRODUTOS */}
         <TabsContent value="products">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-gray-800">Meu Portfólio</h2>
@@ -534,12 +534,9 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                   key={product.id}
                   className="rounded-2xl border-gray-100 shadow-sm hover:shadow-md transition-all bg-white overflow-hidden group"
                 >
-                  {/* HEADER CORRIGIDO: Badge movido para junto do título */}
                   <CardHeader className="pb-3 bg-gray-50/50 border-b border-gray-50 relative">
-                    <div className="flex flex-col items-start gap-1">
-                      <div className="flex items-center gap-2 w-full pr-16">
-                        {" "}
-                        {/* pr-16 para dar espaço aos botões */}
+                    <div className="flex flex-col items-start gap-1 pr-20">
+                      <div className="flex items-center gap-2 w-full">
                         <CardTitle className="text-lg font-medium text-gray-900 truncate">{product.name}</CardTitle>
                         <Badge variant="outline" className="bg-white text-xs font-normal shrink-0">
                           {product.sku_manufacturer || "S/SKU"}
@@ -547,11 +544,13 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                       </div>
                       <CardDescription>{product.category}</CardDescription>
                     </div>
-                    {/* Ações de Edição/Exclusão (Agora sem sobreposição) */}
-                    <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+
+                    {/* AÇÕES DE EDIÇÃO/EXCLUSÃO - AGORA SEMPRE VISÍVEIS E CORRIGIDAS */}
+                    <div className="absolute top-3 right-3 flex gap-2">
                       <Button
                         size="icon"
-                        className="h-8 w-8 bg-white border hover:text-blue-600 rounded-lg shadow-sm"
+                        variant="ghost"
+                        className="h-8 w-8 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
                         onClick={() => handleEditProduct(product)}
                       >
                         <Pencil className="h-4 w-4" />
@@ -560,7 +559,8 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                         <AlertDialogTrigger asChild>
                           <Button
                             size="icon"
-                            className="h-8 w-8 bg-white border hover:text-red-600 rounded-lg shadow-sm"
+                            variant="ghost"
+                            className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -568,9 +568,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                         <AlertDialogContent className="rounded-2xl">
                           <AlertDialogHeader>
                             <AlertDialogTitle>Excluir {product.name}?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Isso removerá o produto e a ficha técnica. Essa ação não pode ser desfeita.
-                            </AlertDialogDescription>
+                            <AlertDialogDescription>Isso removerá o produto e a ficha técnica.</AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
@@ -598,6 +596,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                     <Button
                       variant="outline"
                       className="w-full rounded-xl group-hover:bg-gray-900 group-hover:text-white transition-colors"
+                      onClick={() => handleEditProduct(product)} // AGORA FUNCIONAL
                     >
                       Ver Detalhes <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
