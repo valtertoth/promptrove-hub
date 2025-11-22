@@ -17,9 +17,13 @@ const AdminDashboard = () => {
   const { signOut } = useAuth();
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Dados
   const [users, setUsers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Criar Usuário Manualmente
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
   const [newUser, setNewUser] = useState({ email: "", password: "", role: "especificador", name: "" });
 
@@ -29,46 +33,87 @@ const AdminDashboard = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    const { data: usersData } = await supabase
-      .from("profiles")
-      .select(`*, user_roles (role)`)
-      .order("created_at", { ascending: false });
-    if (usersData) setUsers(usersData);
-    const { data: prodData } = await supabase.from("products").select("*").order("created_at", { ascending: false });
-    if (prodData) setProducts(prodData);
-    setLoading(false);
+    try {
+      // 1. Pega perfis CONECTANDO com user_roles
+      const { data: usersData, error: userError } = await supabase
+        .from("profiles")
+        .select(
+          `
+                *,
+                user_roles (
+                    role
+                )
+            `,
+        )
+        .order("created_at", { ascending: false });
+
+      if (userError) throw userError;
+      if (usersData) setUsers(usersData);
+
+      // 2. Pega produtos
+      const { data: prodData } = await supabase.from("products").select("*").order("created_at", { ascending: false });
+      if (prodData) setProducts(prodData);
+    } catch (error: any) {
+      console.error("Erro ao buscar dados:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // --- AÇÕES DE ADMIN ---
+
   const handleDeleteUser = async (id: string) => {
-    if (!confirm("Apagar usuário?")) return;
+    if (!confirm("ATENÇÃO: Isso apagará o usuário. Continuar?")) return;
+
     const { error } = await supabase.from("profiles").delete().eq("id", id);
-    if (!error) {
+
+    if (error) {
+      toast({ title: "Erro", description: "Erro ao excluir: " + error.message, variant: "destructive" });
+    } else {
       toast({ title: "Usuário Removido", className: "bg-indigo-600 text-white" });
       fetchData();
     }
   };
 
   const handleDeleteProduct = async (id: string) => {
-    if (!confirm("Excluir produto?")) return;
+    if (!confirm("Excluir este produto permanentemente?")) return;
+
     await supabase.from("product_materials").delete().eq("product_id", id);
     const { error } = await supabase.from("products").delete().eq("id", id);
+
     if (!error) {
       toast({ title: "Produto Excluído", className: "bg-indigo-600 text-white" });
       fetchData();
+    } else {
+      toast({ title: "Erro", description: "Erro ao excluir produto.", variant: "destructive" });
     }
   };
 
   const handleCreateUser = async () => {
+    if (!newUser.email || !newUser.password) {
+      toast({ title: "Erro", description: "Preencha email e senha.", variant: "destructive" });
+      return;
+    }
+
     setActionLoading(true);
     try {
       const { error } = await supabase.auth.signUp({
         email: newUser.email,
         password: newUser.password,
-        options: { data: { full_name: newUser.name, role: newUser.role } },
+        options: {
+          data: {
+            full_name: newUser.name,
+            role: newUser.role,
+          },
+        },
       });
+
       if (error) throw error;
-      toast({ title: "Usuário Criado", className: "bg-green-600 text-white" });
+
+      toast({ title: "Usuário Criado", description: "Login disponível.", className: "bg-green-600 text-white" });
       setIsCreateUserOpen(false);
+      setNewUser({ email: "", password: "", role: "especificador", name: "" });
+
       setTimeout(fetchData, 2000);
     } catch (error: any) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
@@ -77,38 +122,50 @@ const AdminDashboard = () => {
     }
   };
 
+  // Função helper corrigida para lidar com possíveis estruturas diferentes de user_roles
+  const getUserRole = (user: any) => {
+    if (user.user_roles && Array.isArray(user.user_roles) && user.user_roles.length > 0) {
+      return user.user_roles[0].role;
+    } else if (user.role) {
+      // Fallback para caso a role esteja diretamente no objeto user (dependendo de como o Supabase retorna)
+      return user.role;
+    }
+    return "sem-perfil";
+  };
+
   return (
     <div className="min-h-screen bg-background p-6 md:p-10 font-sans text-foreground transition-colors duration-500">
       <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-3xl font-serif font-medium tracking-tight text-foreground flex items-center gap-3">
-            <ShieldAlert className="h-8 w-8 text-indigo-600" /> Painel{" "}
-            <span className="italic text-indigo-600">Master</span>
+            <ShieldAlert className="h-8 w-8 text-indigo-600" />
+            Painel <span className="italic text-indigo-600">Master</span>
           </h1>
-          <p className="text-muted-foreground mt-1">Visão irrestrita do ecossistema.</p>
+          <p className="text-muted-foreground mt-1">Controle total do ecossistema (Dev Mode).</p>
         </div>
         <div className="flex gap-3">
           <Button onClick={signOut} variant="ghost" className="text-destructive hover:bg-destructive/10 rounded-xl">
-            Sair
+            <LogOut className="mr-2 h-4 w-4" /> Sair
           </Button>
         </div>
       </header>
 
+      {/* KPIS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <Card className="rounded-2xl border-none shadow-md bg-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Usuários</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">Usuários Cadastrados</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-serif text-indigo-600">{users.length}</div>
+            <div className="text-4xl font-bold text-indigo-600">{users.length}</div>
           </CardContent>
         </Card>
         <Card className="rounded-2xl border-none shadow-md bg-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Produtos</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground">Produtos Totais</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-serif text-foreground">{products.length}</div>
+            <div className="text-4xl font-bold text-foreground">{products.length}</div>
           </CardContent>
         </Card>
       </div>
@@ -119,49 +176,55 @@ const AdminDashboard = () => {
             value="users"
             className="rounded-full px-6 data-[state=active]:bg-indigo-600 data-[state=active]:text-white"
           >
-            Usuários
+            <Users className="mr-2 h-4 w-4" /> Usuários
           </TabsTrigger>
           <TabsTrigger
             value="products"
             className="rounded-full px-6 data-[state=active]:bg-indigo-600 data-[state=active]:text-white"
           >
-            Produtos
+            <Package className="mr-2 h-4 w-4" /> Produtos do Sistema
           </TabsTrigger>
         </TabsList>
 
+        {/* ABA USUÁRIOS */}
         <TabsContent value="users">
           <div className="flex justify-between items-center mb-4">
             <div className="relative w-96">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar..."
+                placeholder="Buscar nome ou função..."
                 className="pl-10 rounded-xl bg-white border-transparent shadow-sm"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+
             <Dialog open={isCreateUserOpen} onOpenChange={setIsCreateUserOpen}>
               <DialogTrigger asChild>
-                <Button className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg">
-                  <Plus className="mr-2 h-4 w-4" /> Novo Cadastro
+                <Button className="rounded-xl bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-600/20">
+                  <Plus className="mr-2 h-4 w-4" /> Criar Usuário
                 </Button>
               </DialogTrigger>
               <DialogContent className="rounded-2xl">
                 <DialogHeader>
-                  <DialogTitle className="font-serif text-xl">Criar Usuário</DialogTitle>
+                  <DialogTitle>Criar Novo Usuário</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
                     <Label>Nome</Label>
-                    <Input onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} />
+                    <Input value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} />
                   </div>
                   <div className="space-y-2">
                     <Label>Email</Label>
-                    <Input onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} />
+                    <Input value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} />
                   </div>
                   <div className="space-y-2">
                     <Label>Senha</Label>
-                    <Input type="password" onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} />
+                    <Input
+                      type="password"
+                      value={newUser.password}
+                      onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Função</Label>
@@ -184,50 +247,105 @@ const AdminDashboard = () => {
                     disabled={actionLoading}
                     className="bg-indigo-600 w-full rounded-xl"
                   >
-                    Criar
+                    {actionLoading ? <Loader2 className="animate-spin" /> : "Criar"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
+
           <Card className="rounded-2xl border-none shadow-sm bg-white overflow-hidden">
             <Table>
               <TableHeader className="bg-secondary/20">
                 <TableRow>
                   <TableHead>Nome</TableHead>
+                  <TableHead>Email</TableHead>
                   <TableHead>Função</TableHead>
+                  <TableHead>Cadastro</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {users
                   .filter((u) => (u.full_name || "").toLowerCase().includes(searchTerm.toLowerCase()))
-                  .map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium font-serif">{user.full_name || "---"}</TableCell>
-                      <TableCell>
-                        <Badge className="bg-secondary text-secondary-foreground hover:bg-secondary">
-                          {user.user_roles?.[0]?.role?.toUpperCase()}
-                        </Badge>
-                      </TableCell>
+                  .map((user) => {
+                    const role = getUserRole(user);
+                    return (
+                      <TableRow key={user.id}>
+                        <TableCell className="font-medium font-serif">{user.full_name || "---"}</TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          <Badge
+                            className={`
+                                            ${role === "fabricante" ? "bg-black" : ""}
+                                            ${role === "fornecedor" ? "bg-blue-600" : ""}
+                                            ${role === "especificador" ? "bg-emerald-600" : ""}
+                                            ${role === "admin" ? "bg-indigo-600" : ""}
+                                        `}
+                          >
+                            {role.toUpperCase()}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:bg-destructive/10 rounded-lg"
+                            onClick={() => handleDeleteUser(user.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+              </TableBody>
+            </Table>
+          </Card>
+        </TabsContent>
+
+        {/* ABA PRODUTOS DO SISTEMA */}
+        <TabsContent value="products">
+          <Card className="rounded-2xl border-none shadow-sm bg-white overflow-hidden">
+            <Table>
+              <TableHeader className="bg-secondary/20">
+                <TableRow>
+                  <TableHead>Produto</TableHead>
+                  <TableHead>ID do Fabricante</TableHead>
+                  <TableHead>Criado em</TableHead>
+                  <TableHead className="text-right">Controle</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {products.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                      Nenhum produto cadastrado.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  products.map((prod) => (
+                    <TableRow key={prod.id}>
+                      <TableCell className="font-medium">{prod.name}</TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">{prod.manufacturer_id}</TableCell>
+                      <TableCell>{new Date(prod.created_at).toLocaleDateString()}</TableCell>
                       <TableCell className="text-right">
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="text-destructive hover:bg-destructive/10 rounded-lg"
-                          onClick={() => handleDeleteUser(user.id)}
+                          className="text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeleteProduct(prod.id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ))
+                )}
               </TableBody>
             </Table>
           </Card>
-        </TabsContent>
-        <TabsContent value="products">
-          <div className="text-center py-10 opacity-50">Lista de produtos disponível na versão completa.</div>
         </TabsContent>
       </Tabs>
     </div>
