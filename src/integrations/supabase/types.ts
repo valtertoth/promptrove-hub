@@ -74,6 +74,61 @@ export type Database = {
         }
         Relationships: []
       }
+      commercial_connections: {
+        Row: {
+          application_data: Json | null
+          created_at: string | null
+          factory_id: string
+          id: string
+          level: string
+          specifier_id: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          application_data?: Json | null
+          created_at?: string | null
+          factory_id: string
+          id?: string
+          level?: string
+          specifier_id: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          application_data?: Json | null
+          created_at?: string | null
+          factory_id?: string
+          id?: string
+          level?: string
+          specifier_id?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commercial_connections_factory_id_fkey"
+            columns: ["factory_id"]
+            isOneToOne: false
+            referencedRelation: "fabrica"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commercial_connections_specifier_id_fkey"
+            columns: ["specifier_id"]
+            isOneToOne: false
+            referencedRelation: "especificador"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commercial_connections_specifier_id_fkey"
+            columns: ["specifier_id"]
+            isOneToOne: false
+            referencedRelation: "especificadores_publicos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       convites_fornecedor: {
         Row: {
           created_at: string | null
