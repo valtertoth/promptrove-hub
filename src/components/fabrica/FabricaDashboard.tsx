@@ -9,143 +9,83 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Plus,
-  Package,
-  Settings,
-  LayoutDashboard,
-  Save,
-  Image as ImageIcon,
-  Check,
-  Loader2,
-  Search,
-  Factory,
-  Building2,
-  X,
-  Layers,
-  ArrowRight,
-  Pencil,
-  Trash2,
-  UploadCloud,
-} from "lucide-react";
+import { Plus, Package, Settings, LayoutDashboard, Save, Image as ImageIcon, Check, Loader2, Search, Factory, Building2, X, Layers, ArrowRight, Pencil, Trash2, UploadCloud, Users, UserCheck, UserX, Instagram, MapPin } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 interface FabricaDashboardProps {
   userId: string;
 }
 
-interface MaterialData {
-  id: string;
-  name: string;
-  type: string;
-  supplier_id: string;
-  supplier_name?: string;
-  sku_supplier: string;
-  image_url: string | null;
-}
-
-interface ProductData {
-  id: string;
-  name: string;
-  category: string;
-  sku_manufacturer: string;
-  description: string;
-  dimensions: string[];
-  image_url: string | null; // Adicionado
-  created_at: string;
-}
+interface MaterialData { id: string; name: string; type: string; supplier_id: string; supplier_name?: string; sku_supplier: string; image_url: string | null; }
+interface ProductData { id: string; name: string; category: string; sku_manufacturer: string; description: string; dimensions: string[]; image_url: string | null; created_at: string; }
+interface ConnectionRequest { id: string; specifier_id: string; status: string; created_at: string; application_data: any; }
 
 const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
   const { signOut } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false); // Estado de upload
-  const [activeTab, setActiveTab] = useState("new-product");
+  const [uploading, setUploading] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
 
-  // Estados de Dados
   const [allMaterials, setAllMaterials] = useState<MaterialData[]>([]);
   const [myProducts, setMyProducts] = useState<ProductData[]>([]);
-
-  // Estado de Edição
+  const [connections, setConnections] = useState<ConnectionRequest[]>([]);
+  
   const [editingId, setEditingId] = useState<string | null>(null);
-
-  // Filtros do Construtor
   const [selectedCategory, setSelectedCategory] = useState<string>("todos");
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>("todos");
-
-  // Materiais Selecionados (CARRINHO)
   const [selectedMaterials, setSelectedMaterials] = useState<MaterialData[]>([]);
 
-  // Formulário
-  const [newProduct, setNewProduct] = useState({
-    name: "",
-    category: "",
-    sku: "",
-    description: "",
-    dimensions: [""],
-    image_url: "", // Novo campo
-  });
+  const [newProduct, setNewProduct] = useState({ name: "", category: "", sku: "", description: "", dimensions: [""], image_url: "" });
 
   useEffect(() => {
     fetchMaterials();
     fetchMyProducts();
+    fetchConnections();
   }, []);
 
   const fetchMaterials = async () => {
-    const { data } = await supabase.from("materials").select("*").order("created_at", { ascending: false });
+    const { data } = await supabase.from('materials').select('*').order('created_at', { ascending: false });
     if (data) setAllMaterials(data);
   };
 
   const fetchMyProducts = async () => {
-    const { data } = await supabase
-      .from("products")
-      .select("*")
-      .eq("manufacturer_id", userId)
-      .order("created_at", { ascending: false });
+    const { data } = await supabase.from('products').select('*').eq('manufacturer_id', userId).order('created_at', { ascending: false });
     if (data) setMyProducts(data);
   };
 
-  // --- Lógica de Upload de Imagem do Produto ---
+  const fetchConnections = async () => {
+    const { data } = await supabase.from('commercial_connections').select('*').eq('factory_id', userId).order('created_at', { ascending: false });
+    if (data) setConnections(data);
+  };
+
+  const handleConnectionAction = async (connectionId: string, status: 'approved' | 'rejected') => {
+      const { error } = await supabase.from('commercial_connections').update({ status }).eq('id', connectionId);
+      if (!error) {
+          toast({ title: status === 'approved' ? "Parceiro Aprovado" : "Solicitação Rejeitada", className: status === 'approved' ? "bg-green-600 text-white" : "bg-gray-800 text-white" });
+          fetchConnections();
+      } else {
+          toast({ title: "Erro", description: error.message, variant: "destructive" });
+      }
+  };
+
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     try {
       const file = event.target.files?.[0];
       if (!file) return;
-
       setUploading(true);
-      const fileExt = file.name.split(".").pop();
+      const fileExt = file.name.split('.').pop();
       const fileName = `product-${userId}-${Math.random()}.${fileExt}`;
-      const filePath = `${fileName}`;
-
-      // Usa o mesmo bucket 'material-images' ou idealmente criaria um 'product-images'
-      // Vamos usar o mesmo por enquanto para facilitar, pois a policy é pública
-      const { error: uploadError } = await supabase.storage.from("material-images").upload(filePath, file);
-
+      const { error: uploadError } = await supabase.storage.from('material-images').upload(fileName, file);
       if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage.from("material-images").getPublicUrl(filePath);
-
-      setNewProduct((prev) => ({ ...prev, image_url: data.publicUrl }));
-      toast({ title: "Foto do produto carregada!", className: "bg-green-600 text-white border-none" });
-    } catch (error: any) {
-      toast({ title: "Erro no upload", description: "Tente uma imagem menor.", variant: "destructive" });
-    } finally {
-      setUploading(false);
-    }
+      const { data } = supabase.storage.from('material-images').getPublicUrl(fileName);
+      setNewProduct(prev => ({ ...prev, image_url: data.publicUrl }));
+      toast({ title: "Imagem atualizada" });
+    } catch (error: any) { toast({ title: "Erro", description: "Tente imagem menor.", variant: "destructive" }); } finally { setUploading(false); }
   };
 
-  // --- Helpers ---
   function getCategoryGroup(type: string) {
     if (["Madeira Maciça", "Lâmina Natural", "Lâmina Pré-Composta"].includes(type)) return "Madeiras";
     if (["Tecido Plano", "Couro Natural", "Couro Sintético", "Veludo"].includes(type)) return "Tecidos";
@@ -155,584 +95,162 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
   }
 
   const uniqueSuppliers = allMaterials
-    .filter((m) => selectedCategory === "todos" || getCategoryGroup(m.type) === selectedCategory)
-    .reduce(
-      (acc, current) => {
-        const exists = acc.find((item) => item.id === current.supplier_id);
-        if (!exists)
-          return acc.concat([{ id: current.supplier_id, name: current.supplier_name || "Fornecedor Sem Nome" }]);
-        return acc;
-      },
-      [] as { id: string; name: string }[],
-    );
+    .filter(m => selectedCategory === "todos" || getCategoryGroup(m.type) === selectedCategory)
+    .reduce((acc, current) => {
+      const exists = acc.find(item => item.id === current.supplier_id);
+      if (!exists) return acc.concat([{ id: current.supplier_id, name: current.supplier_name || "Fornecedor Sem Nome" }]);
+      return acc;
+    }, [] as { id: string, name: string }[]);
 
-  const displayedMaterials = allMaterials.filter((m) => {
+  const displayedMaterials = allMaterials.filter(m => {
     const categoryMatch = selectedCategory === "todos" || getCategoryGroup(m.type) === selectedCategory;
     const supplierMatch = selectedSupplierId === "todos" || m.supplier_id === selectedSupplierId;
     return categoryMatch && supplierMatch;
   });
 
   const toggleMaterial = (material: MaterialData) => {
-    if (selectedMaterials.find((m) => m.id === material.id)) {
-      setSelectedMaterials(selectedMaterials.filter((m) => m.id !== material.id));
+    if (selectedMaterials.find(m => m.id === material.id)) {
+      setSelectedMaterials(selectedMaterials.filter(m => m.id !== material.id));
     } else {
       setSelectedMaterials([...selectedMaterials, material]);
     }
   };
 
-  const groupedSelected = selectedMaterials.reduce(
-    (acc, mat) => {
-      const group = getCategoryGroup(mat.type);
-      if (!acc[group]) acc[group] = [];
-      acc[group].push(mat);
-      return acc;
-    },
-    {} as Record<string, MaterialData[]>,
-  );
+  const groupedSelected = selectedMaterials.reduce((acc, mat) => {
+    const group = getCategoryGroup(mat.type);
+    if (!acc[group]) acc[group] = [];
+    acc[group].push(mat);
+    return acc;
+  }, {} as Record<string, MaterialData[]>);
 
-  // Helpers de Dimensão
   const addDimension = () => setNewProduct({ ...newProduct, dimensions: [...newProduct.dimensions, ""] });
-  const updateDimension = (index: number, val: string) => {
-    const dims = [...newProduct.dimensions];
-    dims[index] = val;
-    setNewProduct({ ...newProduct, dimensions: dims });
-  };
-  const removeDimension = (index: number) => {
-    const dims = newProduct.dimensions.filter((_, i) => i !== index);
-    setNewProduct({ ...newProduct, dimensions: dims });
-  };
+  const updateDimension = (index: number, val: string) => { const dims = [...newProduct.dimensions]; dims[index] = val; setNewProduct({ ...newProduct, dimensions: dims }); };
+  const removeDimension = (index: number) => { const dims = newProduct.dimensions.filter((_, i) => i !== index); setNewProduct({ ...newProduct, dimensions: dims }); };
 
-  // --- LÓGICA DE EDIÇÃO ---
   const handleEditProduct = async (product: ProductData) => {
     setEditingId(product.id);
-    setNewProduct({
-      name: product.name,
-      category: product.category,
-      sku: product.sku_manufacturer || "",
-      description: product.description || "",
-      dimensions: product.dimensions || [""],
-      image_url: product.image_url || "",
-    });
-
-    const { data: links } = await supabase.from("product_materials").select("material_id").eq("product_id", product.id);
-
-    if (links) {
-      const linkedMaterials = allMaterials.filter((m) => links.some((l) => l.material_id === m.id));
-      setSelectedMaterials(linkedMaterials);
-    }
-
+    setNewProduct({ name: product.name, category: product.category, sku: product.sku_manufacturer || "", description: product.description || "", dimensions: product.dimensions || [""], image_url: product.image_url || "" });
+    const { data: links } = await supabase.from('product_materials').select('material_id').eq('product_id', product.id);
+    if (links) { const linkedMaterials = allMaterials.filter(m => links.some(l => l.material_id === m.id)); setSelectedMaterials(linkedMaterials); }
     setActiveTab("new-product");
   };
 
-  const handleCancelEdit = () => {
-    setEditingId(null);
-    setNewProduct({ name: "", category: "", sku: "", description: "", dimensions: [""], image_url: "" });
-    setSelectedMaterials([]);
-    setActiveTab("products");
-  };
+  const handleCancelEdit = () => { setEditingId(null); setNewProduct({ name: "", category: "", sku: "", description: "", dimensions: [""], image_url: "" }); setSelectedMaterials([]); setActiveTab("products"); };
 
   const handleDeleteProduct = async (id: string) => {
-    await supabase.from("product_materials").delete().eq("product_id", id);
-    const { error } = await supabase.from("products").delete().eq("id", id);
-
-    if (!error) {
-      toast({ title: "Produto excluído", className: "bg-gray-800 text-white border-none" });
-      fetchMyProducts();
-    } else {
-      toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
-    }
+    await supabase.from('product_materials').delete().eq('product_id', id);
+    const { error } = await supabase.from('products').delete().eq('id', id);
+    if (!error) { toast({ title: "Excluído" }); fetchMyProducts(); }
   };
 
   const handleSaveProduct = async () => {
-    if (!newProduct.name || !newProduct.category) {
-      toast({ title: "Erro", description: "Preencha os campos obrigatórios.", variant: "destructive" });
-      return;
-    }
-
+    if (!newProduct.name || !newProduct.category) { toast({ title: "Erro", description: "Campos obrigatórios.", variant: "destructive" }); return; }
     setLoading(true);
     try {
-      let productId = editingId;
-
-      const productPayload = {
-        manufacturer_id: userId,
-        name: newProduct.name,
-        category: newProduct.category,
-        sku_manufacturer: newProduct.sku,
-        description: newProduct.description,
-        dimensions: newProduct.dimensions,
-        image_url: newProduct.image_url, // Salva a imagem
-      };
-
+      const payload = { manufacturer_id: userId, name: newProduct.name, category: newProduct.category, sku_manufacturer: newProduct.sku, description: newProduct.description, dimensions: newProduct.dimensions, image_url: newProduct.image_url };
+      let pid = editingId;
       if (editingId) {
-        const { error } = await supabase.from("products").update(productPayload).eq("id", editingId);
-        if (error) throw error;
-        toast({ title: "Produto Atualizado!", className: "bg-blue-600 text-white border-none" });
-        await supabase.from("product_materials").delete().eq("product_id", editingId);
+        await supabase.from('products').update(payload).eq('id', editingId);
+        await supabase.from('product_materials').delete().eq('product_id', editingId);
+        toast({ title: "Ficha Técnica Atualizada", className: "bg-primary text-white border-none" });
       } else {
-        const { data, error } = await supabase.from("products").insert(productPayload).select().single();
-        if (error) throw error;
-        productId = data.id;
-        toast({ title: "Produto Criado!", className: "bg-green-600 text-white border-none" });
+        const { data } = await supabase.from('products').insert(payload).select().single();
+        if (data) pid = data.id;
+        toast({ title: "Produto Publicado", className: "bg-primary text-white border-none" });
       }
-
-      if (selectedMaterials.length > 0 && productId) {
-        const links = selectedMaterials.map((m) => ({
-          product_id: productId,
-          material_id: m.id,
-        }));
-        await supabase.from("product_materials").insert(links);
+      if (selectedMaterials.length > 0 && pid) {
+        const links = selectedMaterials.map(m => ({ product_id: pid, material_id: m.id }));
+        await supabase.from('product_materials').insert(links);
       }
-
-      setEditingId(null);
-      setNewProduct({ name: "", category: "", sku: "", description: "", dimensions: [""], image_url: "" });
-      setSelectedMaterials([]);
-      await fetchMyProducts();
-      setActiveTab("products");
-    } catch (error: any) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
+      handleCancelEdit();
+      fetchMyProducts();
+    } catch (error: any) { toast({ title: "Erro", description: error.message, variant: "destructive" }); } finally { setLoading(false); }
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] p-6 md:p-10 font-sans text-slate-800">
+    <div className="min-h-screen bg-background p-6 md:p-10 font-sans text-foreground transition-colors duration-500">
       <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-light tracking-tight text-gray-900">
-            Painel da <span className="font-semibold text-primary">Fábrica</span>
+          <h1 className="text-4xl font-serif font-medium tracking-tight text-foreground">
+            Atelier da <span className="italic text-primary">Fábrica</span>
           </h1>
-          <p className="text-gray-500 mt-1">Construção de Produtos e Ficha Técnica.</p>
+          <p className="text-muted-foreground mt-2 font-light">Gestão de acervo e curadoria de materiais.</p>
         </div>
         <div className="flex gap-3">
-          <Button onClick={signOut} variant="ghost" className="text-red-500 hover:bg-red-50 rounded-xl">
-            Sair
-          </Button>
+          <Button onClick={signOut} variant="ghost" className="text-destructive hover:bg-destructive/10 rounded-xl">Sair</Button>
         </div>
       </header>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="bg-white/80 backdrop-blur-sm p-1 rounded-2xl border border-gray-200/50 shadow-sm w-full md:w-auto inline-flex">
-          <TabsTrigger value="overview" className="rounded-xl px-6">
-            <LayoutDashboard className="mr-2 h-4 w-4" /> Visão Geral
-          </TabsTrigger>
-          <TabsTrigger value="products" className="rounded-xl px-6">
-            <Package className="mr-2 h-4 w-4" /> Meus Produtos
-          </TabsTrigger>
-          <TabsTrigger
-            value="new-product"
-            className="rounded-xl data-[state=active]:bg-primary data-[state=active]:text-primary-foreground px-6"
-          >
-            {editingId ? <Pencil className="mr-2 h-4 w-4" /> : <Plus className="mr-2 h-4 w-4" />}
-            {editingId ? "Editando Produto" : "Novo Produto"}
-          </TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
+        <TabsList className="bg-white/50 backdrop-blur-sm p-1 rounded-full border border-border shadow-sm inline-flex">
+          <TabsTrigger value="overview" className="rounded-full px-6 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-300">Visão Geral</TabsTrigger>
+          <TabsTrigger value="products" className="rounded-full px-6 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-300">Portfólio</TabsTrigger>
+          <TabsTrigger value="partners" className="rounded-full px-6 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-300">Parceiros</TabsTrigger>
+          <TabsTrigger value="new-product" className="rounded-full px-6 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-300">{editingId ? "Editor" : "Novo Produto"}</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="new-product">
-          <div className="grid gap-8 md:grid-cols-12">
-            <div className="md:col-span-7 space-y-6">
-              {/* CARD DE IMAGEM (NOVO) */}
-              <Card className="rounded-2xl border-gray-100 shadow-lg bg-white">
-                <CardHeader className="pb-4 px-6 pt-6">
-                  <CardTitle className="text-lg font-medium">Foto Principal</CardTitle>
-                  <CardDescription>Imagem do produto finalizado (Cadeira Montada).</CardDescription>
-                </CardHeader>
-                <CardContent className="p-6 pt-2">
-                  {newProduct.image_url ? (
-                    <div className="relative rounded-2xl overflow-hidden h-64 border border-gray-200 group">
-                      <img src={newProduct.image_url} alt="Preview" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <label
-                          htmlFor="prod-img-upload"
-                          className="cursor-pointer text-white flex flex-col items-center"
-                        >
-                          <UploadCloud className="h-8 w-8 mb-2" />
-                          <span className="text-sm">Trocar Foto</span>
-                        </label>
-                      </div>
-                    </div>
-                  ) : (
-                    <label
-                      htmlFor="prod-img-upload"
-                      className="border-2 border-dashed border-gray-200 rounded-2xl h-48 flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 hover:border-primary/50 transition-all cursor-pointer bg-gray-50/50"
-                    >
-                      {uploading ? (
-                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                      ) : (
-                        <ImageIcon className="h-10 w-10 mb-2 opacity-50" />
-                      )}
-                      <span className="text-sm">Clique para adicionar foto do produto</span>
-                    </label>
-                  )}
-                  <input
-                    id="prod-img-upload"
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleImageUpload}
-                    disabled={uploading}
-                  />
-                </CardContent>
-              </Card>
-
-              <Card className="rounded-2xl border-gray-100 shadow-lg bg-white">
-                <CardHeader className="bg-gray-50/40 border-b border-gray-100 pb-4 flex flex-row justify-between items-center">
-                  <CardTitle className="text-lg font-medium">
-                    {editingId ? "Dados do Produto" : "1. Dados do Produto"}
-                  </CardTitle>
-                  {editingId && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleCancelEdit}
-                      className="text-gray-500 hover:text-gray-700 rounded-xl"
-                    >
-                      <X className="mr-2 h-4 w-4" /> Cancelar
-                    </Button>
-                  )}
-                </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                  <div className="grid gap-2">
-                    <Label>Nome do Produto</Label>
-                    <Input
-                      className="h-12 rounded-xl bg-gray-50/30"
-                      placeholder="Ex: Cadeira João"
-                      value={newProduct.name}
-                      onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label>Categoria</Label>
-                      <Input
-                        className="h-12 rounded-xl bg-gray-50/30"
-                        placeholder="Cadeira, Mesa..."
-                        value={newProduct.category}
-                        onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label>SKU</Label>
-                      <Input
-                        className="h-12 rounded-xl bg-gray-50/30"
-                        value={newProduct.sku}
-                        onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  {/* DIMENSÕES DINÂMICAS */}
-                  <div className="grid gap-2">
-                    <Label>Dimensões Disponíveis</Label>
-                    {newProduct.dimensions.map((dim, i) => (
-                      <div key={i} className="flex gap-2">
-                        <Input
-                          className="h-10 rounded-xl bg-gray-50/30"
-                          value={dim}
-                          onChange={(e) => updateDimension(i, e.target.value)}
-                          placeholder="L: 50cm x P: 50cm x A: 90cm"
-                        />
-                        {newProduct.dimensions.length > 1 && (
-                          <Button variant="ghost" size="icon" onClick={() => removeDimension(i)}>
-                            <X className="h-4 w-4 text-gray-400" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                    <Button variant="link" onClick={addDimension} className="px-0 text-primary w-fit">
-                      + Adicionar outra medida
-                    </Button>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label>Descrição</Label>
-                    <Textarea
-                      className="min-h-[80px] rounded-xl bg-gray-50/30"
-                      value={newProduct.description}
-                      onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* COMPOSIÇÃO */}
-              <Card className="rounded-2xl border-gray-100 shadow-lg bg-white min-h-[300px]">
-                <CardHeader className="pb-2 border-b border-gray-50">
-                  <CardTitle className="text-lg font-medium flex items-center gap-2">
-                    <Layers className="h-5 w-5 text-primary" />
-                    2. Composição / Variações
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6">
-                  {selectedMaterials.length === 0 ? (
-                    <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
-                      <Package className="h-10 w-10 mx-auto text-gray-300 mb-2" />
-                      <p className="text-gray-400 font-medium">A ficha técnica está vazia.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      {Object.entries(groupedSelected).map(([groupName, items]) => (
-                        <div key={groupName} className="space-y-3">
-                          <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wider flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                            {groupName}
-                          </h4>
-                          <div className="flex flex-wrap gap-2">
-                            {items.map((m) => (
-                              <div
-                                key={m.id}
-                                className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-2 pr-3 hover:border-red-200 hover:bg-red-50 group transition-all cursor-pointer"
-                                onClick={() => toggleMaterial(m)}
-                              >
-                                <div className="h-8 w-8 rounded bg-white border border-gray-100 overflow-hidden">
-                                  {m.image_url ? (
-                                    <img src={m.image_url} className="w-full h-full object-cover" />
-                                  ) : (
-                                    <ImageIcon className="h-4 w-4 m-auto mt-2 text-gray-300" />
-                                  )}
-                                </div>
-                                <div className="flex flex-col">
-                                  <span className="text-xs font-semibold text-gray-700 group-hover:text-red-600">
-                                    {m.name}
-                                  </span>
-                                  <span className="text-[10px] text-gray-400">{m.supplier_name}</span>
-                                </div>
-                                <X className="h-3 w-3 ml-2 text-gray-300 group-hover:text-red-500" />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-                <div className="p-4 bg-gray-50 border-t border-gray-100 rounded-b-2xl">
-                  <Button
-                    className={`w-full h-12 text-lg font-semibold rounded-xl shadow-lg transition-all active:scale-95 ${editingId ? "bg-blue-600 hover:bg-blue-700" : "bg-gray-900 hover:bg-black"}`}
-                    onClick={handleSaveProduct}
-                    disabled={loading || uploading}
-                  >
-                    {loading ? (
-                      <Loader2 className="mr-2 animate-spin" />
-                    ) : editingId ? (
-                      <Save className="mr-2 h-5 w-5" />
-                    ) : (
-                      <Plus className="mr-2 h-5 w-5" />
-                    )}
-                    {editingId ? "Salvar Alterações" : "Publicar Produto"}
-                  </Button>
-                </div>
-              </Card>
-            </div>
-
-            <div className="md:col-span-5 space-y-6">
-              <Card className="rounded-2xl border-gray-100 shadow-lg bg-white flex flex-col h-[1150px]">
-                <CardHeader className="pb-4 px-6 pt-6 border-b border-gray-50 bg-blue-50/30">
-                  <CardTitle className="text-lg font-medium flex items-center gap-2 text-blue-700">
-                    <Building2 className="h-5 w-5" />
-                    Catálogo de Fornecedores
-                  </CardTitle>
-                  <div className="space-y-3 mt-4">
-                    <Select
-                      value={selectedCategory}
-                      onValueChange={(val) => {
-                        setSelectedCategory(val);
-                        setSelectedSupplierId("todos");
-                      }}
-                    >
-                      <SelectTrigger className="h-11 rounded-xl bg-white border-gray-200">
-                        <SelectValue placeholder="Categoria" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="todos">Todas</SelectItem>
-                        <SelectItem value="Madeiras">Madeiras</SelectItem>
-                        <SelectItem value="Tecidos">Tecidos</SelectItem>
-                        <SelectItem value="Metais">Metais</SelectItem>
-                        <SelectItem value="Pedras">Pedras</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select value={selectedSupplierId} onValueChange={setSelectedSupplierId}>
-                      <SelectTrigger className="h-11 rounded-xl bg-white border-gray-200">
-                        <SelectValue placeholder="Fornecedor" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="todos">Todos</SelectItem>
-                        {uniqueSuppliers.map((sup) => (
-                          <SelectItem key={sup.id} value={sup.id}>
-                            {sup.name}
-                          </SelectItem>
+        <TabsContent value="partners">
+            <div className="grid gap-6">
+                <div>
+                    <h3 className="text-xl font-serif text-foreground mb-4 flex items-center gap-2">
+                        Solicitações Pendentes <Badge variant="secondary" className="rounded-full">{connections.filter(c => c.status === 'pending').length}</Badge>
+                    </h3>
+                    <div className="grid md:grid-cols-2 gap-4">
+                        {connections.filter(c => c.status === 'pending').map(conn => (
+                            <Card key={conn.id} className="rounded-2xl border-none shadow-md bg-white/80 backdrop-blur-sm">
+                                <CardHeader className="pb-3">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <CardTitle className="text-lg font-serif font-medium text-foreground">
+                                                {conn.application_data?.type?.toUpperCase() || "ESPECIFICADOR"}
+                                            </CardTitle>
+                                            <CardDescription className="flex items-center gap-1 mt-1">
+                                                <MapPin className="w-3 h-3" /> {conn.application_data?.address}
+                                            </CardDescription>
+                                        </div>
+                                        <Badge variant="outline" className="bg-accent/20 text-accent-foreground border-accent/50">Novo</Badge>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="text-sm text-muted-foreground space-y-3 pb-4">
+                                    <div className="flex items-center gap-2"><Instagram className="w-4 h-4" /> {conn.application_data?.social}</div>
+                                    <div className="bg-secondary/30 p-3 rounded-xl text-xs italic border border-border">"{conn.application_data?.about}"</div>
+                                </CardContent>
+                                <CardFooter className="gap-3 pt-0">
+                                    <Button onClick={() => handleConnectionAction(conn.id, 'approved')} className="flex-1 bg-primary hover:bg-primary/90 rounded-xl">Aprovar</Button>
+                                    <Button onClick={() => handleConnectionAction(conn.id, 'rejected')} variant="outline" className="flex-1 border-destructive/30 text-destructive hover:bg-destructive/10 rounded-xl">Recusar</Button>
+                                </CardFooter>
+                            </Card>
                         ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="flex-1 overflow-hidden p-0 bg-gray-50/30">
-                  <ScrollArea className="h-full px-4 py-4">
-                    <div className="grid grid-cols-2 gap-3">
-                      {displayedMaterials.map((mat) => {
-                        const isSelected = selectedMaterials.some((sm) => sm.id === mat.id);
-                        return (
-                          <div
-                            key={mat.id}
-                            onClick={() => toggleMaterial(mat)}
-                            className={`
-                                            group relative flex flex-col gap-2 p-3 rounded-xl border cursor-pointer transition-all
-                                            ${isSelected ? "border-blue-500 ring-1 ring-blue-500 bg-blue-50 shadow-md" : "border-gray-200 bg-white hover:border-blue-300 hover:shadow-sm"}
-                                        `}
-                          >
-                            <div className="h-24 w-full rounded-lg bg-gray-100 overflow-hidden relative">
-                              {mat.image_url ? (
-                                <img src={mat.image_url} className="w-full h-full object-cover" />
-                              ) : (
-                                <ImageIcon className="h-8 w-8 m-auto text-gray-300 absolute inset-0 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
-                              )}
-                              {isSelected && (
-                                <div className="absolute top-2 right-2 bg-blue-500 text-white rounded-full p-1 shadow-sm animate-in zoom-in">
-                                  <Check className="h-3 w-3" />
-                                </div>
-                              )}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">
-                                {mat.type}
-                              </p>
-                              <p
-                                className={`text-sm font-semibold truncate ${isSelected ? "text-blue-700" : "text-gray-800"}`}
-                              >
-                                {mat.name}
-                              </p>
-                              <p className="text-[10px] text-gray-500 truncate mt-1">
-                                {mat.supplier_name || "Desconhecido"}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      })}
+                        {connections.filter(c => c.status === 'pending').length === 0 && <div className="col-span-2 py-12 text-center text-muted-foreground border border-dashed rounded-2xl">Tudo em dia. Nenhuma solicitação pendente.</div>}
                     </div>
-                  </ScrollArea>
-                </CardContent>
-              </Card>
+                </div>
+                <div className="mt-8">
+                    <h3 className="text-xl font-serif text-foreground mb-4">Rede Homologada</h3>
+                    <div className="grid md:grid-cols-3 gap-4">
+                        {connections.filter(c => c.status === 'approved').map(conn => (
+                            <div key={conn.id} className="flex items-center gap-4 p-4 bg-white border border-border rounded-2xl shadow-sm">
+                                <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center text-green-700"><UserCheck className="h-5 w-5" /></div>
+                                <div><p className="font-medium text-foreground">{conn.application_data?.document}</p><p className="text-xs text-muted-foreground uppercase">{conn.application_data?.type}</p></div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </div>
-          </div>
         </TabsContent>
 
         <TabsContent value="products">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-gray-800">Meu Portfólio</h2>
-            <Button
-              onClick={() => {
-                setEditingId(null);
-                setActiveTab("new-product");
-              }}
-              className="bg-gray-900 text-white rounded-xl"
-            >
-              <Plus className="mr-2 h-4 w-4" /> Criar Novo
-            </Button>
-          </div>
-
-          {myProducts.length === 0 ? (
-            <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-200">
-              <Package className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900">Nenhum produto criado</h3>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {myProducts.map((product) => (
-                <Card
-                  key={product.id}
-                  className="rounded-2xl border-gray-100 shadow-sm hover:shadow-md transition-all bg-white overflow-hidden group"
-                >
-                  <div className="h-48 bg-gray-100 relative overflow-hidden border-b border-gray-50">
-                    {product.image_url ? (
-                      <img
-                        src={product.image_url}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="flex items-center justify-center h-full text-gray-300">
-                        <ImageIcon className="h-10 w-10 opacity-50" />
-                      </div>
-                    )}
-                    <Badge
-                      variant="secondary"
-                      className="absolute top-3 left-3 bg-white/90 backdrop-blur text-xs shadow-sm"
-                    >
-                      {product.category}
-                    </Badge>
-                  </div>
-                  <CardHeader className="pb-3 pt-4 relative">
-                    <div className="flex flex-col items-start gap-1 pr-20">
-                      <div className="flex items-center gap-2 w-full">
-                        <CardTitle className="text-lg font-medium text-gray-900 truncate">{product.name}</CardTitle>
-                        <Badge variant="outline" className="bg-white text-xs font-normal shrink-0">
-                          {product.sku_manufacturer || "S/SKU"}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className="absolute top-3 right-3 flex gap-2">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
-                        onClick={() => handleEditProduct(product)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent className="rounded-2xl">
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Excluir {product.name}?</AlertDialogTitle>
-                            <AlertDialogDescription>Isso removerá o produto e a ficha técnica.</AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDeleteProduct(product.id)}
-                              className="bg-red-600 rounded-xl"
-                            >
-                              Sim, excluir
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-5 pt-0">
-                    <p className="text-xs text-gray-400 mt-2">
-                      Atualizado em {new Date(product.created_at).toLocaleDateString()}
-                    </p>
-                  </CardContent>
-                  <CardFooter className="p-4 pt-0">
-                    <Button
-                      variant="outline"
-                      className="w-full rounded-xl group-hover:bg-gray-900 group-hover:text-white transition-colors"
-                      onClick={() => handleEditProduct(product)}
-                    >
-                      Ver Detalhes <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="overview">
-          <div className="text-center py-10 text-gray-400">Dashboards em breve.</div>
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-};
-
-export default FabricaDashboard;
+             <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-serif text-foreground">Acervo</h2>
+                <Button onClick={() => { setEditingId(null); setActiveTab("new-product"); }} className="bg-primary text-primary-foreground rounded-xl"><Plus className="mr-2 h-4 w-4" /> Criar Peça</Button>
+             </div>
+             {myProducts.length === 0 ? ( <div className="text-center py-24 bg-white/50 rounded-3xl border border-dashed"><Package className="h-12 w-12 mx-auto text-muted-foreground mb-4 opacity-20" /><h3 className="text-xl font-serif text-foreground">O acervo está vazio</h3></div> ) : (
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                     {myProducts.map((product) => (
+                         <Card key={product.id} className="rounded-2xl border-none shadow-lg hover:shadow-xl transition-all duration-500 bg-white overflow-hidden group">
+                            <div className="h-56 bg-secondary/20 relative overflow-hidden">
+                                {product.image_url ? <img src={product.image_url} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" /> : <div className="flex items-center justify-center h-full text-muted-foreground"><ImageIcon className="h-10 w-10 opacity-20" /></div>}
+                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+                                    <Button size="icon" variant="secondary" className="h-8 w-8 rounded-lg bg-white/90 backdrop-blur" onClick={() => handleEditProduct(product)}><Pencil className="h-4 w-4" /></Button>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild><Button size="icon" variant="secondary" className="h-8 w-8 rounded-lg bg
