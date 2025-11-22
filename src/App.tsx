@@ -8,27 +8,34 @@ import Dashboard from "./pages/Dashboard";
 import Catalogo from "./pages/Catalogo";
 import Dev from "./pages/Dev";
 import NotFound from "./pages/NotFound";
-import DevRoleSwitcher from "./components/dev/DevRoleSwitcher";
+import AdminDashboard from "./components/admin/AdminDashboard"; // <--- IMPORT NOVO
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <Toaster />
-    <Sonner />
-    <BrowserRouter>
-      <DevRoleSwitcher />
-      <Routes>
-        <Route path="/" element={<Index />} />
-        <Route path="/auth" element={<Auth />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/catalogo" element={<Catalogo />} />
-        <Route path="/dev" element={<Dev />} />
-        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </BrowserRouter>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/catalogo" element={<Catalogo />} />
+
+          {/* ROTA DO MODO DEUS (Adicionada Agora) */}
+          <Route path="/admin" element={<AdminDashboard userId="admin-master" />} />
+
+          <Route path="/dev" element={<Dev />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </TooltipProvider>
   </QueryClientProvider>
 );
+
+// Pequeno helper para o TooltipProvider que faltava no seu arquivo original
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 export default App;
