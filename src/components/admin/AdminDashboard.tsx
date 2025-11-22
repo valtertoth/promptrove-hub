@@ -13,36 +13,15 @@ import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 
-interface AdminDashboardProps {
-  userId: string;
-}
-
-// Interface ajustada para a estrutura do Lovable
-interface Profile {
-  id: string;
-  full_name: string | null;
-  updated_at: string | null;
-  // O Supabase retorna os relacionamentos assim:
-  user_roles: {
-    role: string;
-  }[];
-}
-
-interface Product {
-  id: string;
-  name: string;
-  manufacturer_id: string;
-  created_at: string;
-}
-
-const AdminDashboard = ({ userId }: AdminDashboardProps) => {
+// REMOVI A PROPRIEDADE OBRIGATÓRIA USERID
+const AdminDashboard = () => {
   const { signOut } = useAuth();
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
   // Dados
-  const [users, setUsers] = useState<Profile[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
 
   // Criar Usuário Manualmente
@@ -67,31 +46,26 @@ const AdminDashboard = ({ userId }: AdminDashboardProps) => {
                 )
             `,
         )
-        .order("updated_at", { ascending: false });
+        .order("created_at", { ascending: false }); // Tentei created_at, se der erro mude para updated_at
 
       if (userError) throw userError;
-      if (usersData) {
-        // Pequena adaptação se user_roles vier vazio ou array
-        setUsers(usersData as any);
-      }
+      if (usersData) setUsers(usersData);
 
       // 2. Pega produtos
       const { data: prodData } = await supabase.from("products").select("*").order("created_at", { ascending: false });
       if (prodData) setProducts(prodData);
     } catch (error: any) {
       console.error("Erro ao buscar dados:", error);
-      // Não vamos mostrar toast de erro aqui para não poluir se for só questão de permissão inicial
     } finally {
       setLoading(false);
     }
   };
 
-  // --- AÇÕES DE ADMIN (GOD MODE) ---
+  // --- AÇÕES DE ADMIN ---
 
   const handleDeleteUser = async (id: string) => {
     if (!confirm("ATENÇÃO: Isso apagará o usuário. Continuar?")) return;
 
-    // Tenta apagar do profiles (Cascade deve cuidar do resto)
     const { error } = await supabase.from("profiles").delete().eq("id", id);
 
     if (error) {
@@ -122,15 +96,12 @@ const AdminDashboard = ({ userId }: AdminDashboardProps) => {
 
     setActionLoading(true);
     try {
-      // Cria usuário no Auth do Supabase
-      // O Trigger do Lovable (handle_new_user) vai rodar automaticamente
       const { error } = await supabase.auth.signUp({
         email: newUser.email,
         password: newUser.password,
         options: {
           data: {
             full_name: newUser.name,
-            // Passamos o role no metadata para o trigger do Lovable pegar
             role: newUser.role,
           },
         },
@@ -142,7 +113,6 @@ const AdminDashboard = ({ userId }: AdminDashboardProps) => {
       setIsCreateUserOpen(false);
       setNewUser({ email: "", password: "", role: "especificador", name: "" });
 
-      // Delay para o trigger rodar
       setTimeout(fetchData, 2000);
     } catch (error: any) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
@@ -151,8 +121,7 @@ const AdminDashboard = ({ userId }: AdminDashboardProps) => {
     }
   };
 
-  // Helper para pegar a role de dentro do array
-  const getUserRole = (user: Profile) => {
+  const getUserRole = (user: any) => {
     if (user.user_roles && user.user_roles.length > 0) {
       return user.user_roles[0].role;
     }
@@ -182,7 +151,7 @@ const AdminDashboard = ({ userId }: AdminDashboardProps) => {
         </div>
       </header>
 
-      {/* DASHBOARD KPIS */}
+      {/* KPIS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <Card className="rounded-2xl border-none shadow-md bg-white">
           <CardHeader className="pb-2">
@@ -333,7 +302,6 @@ const AdminDashboard = ({ userId }: AdminDashboardProps) => {
           </Card>
         </TabsContent>
 
-        {/* ABA PRODUTOS DO SISTEMA */}
         <TabsContent value="products">
           <Card className="rounded-2xl border-none shadow-sm bg-white overflow-hidden">
             <Table>
