@@ -80,10 +80,12 @@ const Dashboard = () => {
   }
 
   // Roteamento baseado no papel (Role)
+  if (!user) return null;
+  
   if (userRole === "admin") return <AdminDashboard />;
-  if (userRole === "fabricante") return <FabricaDashboard userId={user!.id} />;
-  if (userRole === "fornecedor") return <FornecedorDashboard userId={user!.id} />;
-  if (userRole === "especificador") return <EspecificadorDashboard userId={user!.id} />;
+  if (userRole === "fabricante") return <FabricaDashboard userId={user.id} />;
+  if (userRole === "fornecedor") return <FornecedorDashboard userId={user.id} />;
+  if (userRole === "especificador") return <EspecificadorDashboard userId={user.id} />;
 
   // Se não tem papel definido, mostra a tela de escolha
   return (
