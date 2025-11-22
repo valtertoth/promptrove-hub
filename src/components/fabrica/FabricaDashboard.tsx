@@ -158,7 +158,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
     {} as Record<string, MaterialData[]>,
   );
 
-  // --- LÓGICA DE EDIÇÃO (NOVO) ---
+  // --- LÓGICA DE EDIÇÃO ---
   const handleEditProduct = async (product: ProductData) => {
     setEditingId(product.id);
     setNewProduct({
@@ -169,11 +169,9 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
       dimensions: product.dimensions || [""],
     });
 
-    // Buscar materiais vinculados a este produto
     const { data: links } = await supabase.from("product_materials").select("material_id").eq("product_id", product.id);
 
     if (links) {
-      // Filtra da lista geral os materiais que têm o ID igual aos links encontrados
       const linkedMaterials = allMaterials.filter((m) => links.some((l) => l.material_id === m.id));
       setSelectedMaterials(linkedMaterials);
     }
@@ -188,11 +186,9 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
     setActiveTab("products");
   };
 
-  // --- LÓGICA DE EXCLUSÃO (NOVO) ---
+  // --- LÓGICA DE EXCLUSÃO ---
   const handleDeleteProduct = async (id: string) => {
-    // 1. Remove os vínculos primeiro
     await supabase.from("product_materials").delete().eq("product_id", id);
-    // 2. Remove o produto
     const { error } = await supabase.from("products").delete().eq("id", id);
 
     if (!error) {
@@ -224,22 +220,17 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
       };
 
       if (editingId) {
-        // ATUALIZAR
         const { error } = await supabase.from("products").update(productPayload).eq("id", editingId);
         if (error) throw error;
         toast({ title: "Produto Atualizado!", className: "bg-blue-600 text-white border-none" });
-
-        // Remove vínculos antigos para recriar (jeito mais seguro de atualizar N-para-N)
         await supabase.from("product_materials").delete().eq("product_id", editingId);
       } else {
-        // CRIAR
         const { data, error } = await supabase.from("products").insert(productPayload).select().single();
         if (error) throw error;
         productId = data.id;
         toast({ title: "Produto Criado!", className: "bg-green-600 text-white border-none" });
       }
 
-      // Recriar Vínculos
       if (selectedMaterials.length > 0 && productId) {
         const links = selectedMaterials.map((m) => ({
           product_id: productId,
@@ -248,7 +239,6 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
         await supabase.from("product_materials").insert(links);
       }
 
-      // Reset e Volta
       setEditingId(null);
       setNewProduct({ name: "", category: "", sku: "", description: "", dimensions: [""] });
       setSelectedMaterials([]);
@@ -517,7 +507,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
           </div>
         </TabsContent>
 
-        {/* ABA: MEUS PRODUTOS (COM EDIÇÃO E EXCLUSÃO) */}
+        {/* ABA: MEUS PRODUTOS (CORRIGIDA) */}
         <TabsContent value="products">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-gray-800">Meu Portfólio</h2>
@@ -544,28 +534,34 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                   key={product.id}
                   className="rounded-2xl border-gray-100 shadow-sm hover:shadow-md transition-all bg-white overflow-hidden group"
                 >
+                  {/* HEADER CORRIGIDO: Badge movido para junto do título */}
                   <CardHeader className="pb-3 bg-gray-50/50 border-b border-gray-50 relative">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle className="text-lg font-medium text-gray-900">{product.name}</CardTitle>
-                        <CardDescription>{product.category}</CardDescription>
+                    <div className="flex flex-col items-start gap-1">
+                      <div className="flex items-center gap-2 w-full pr-16">
+                        {" "}
+                        {/* pr-16 para dar espaço aos botões */}
+                        <CardTitle className="text-lg font-medium text-gray-900 truncate">{product.name}</CardTitle>
+                        <Badge variant="outline" className="bg-white text-xs font-normal shrink-0">
+                          {product.sku_manufacturer || "S/SKU"}
+                        </Badge>
                       </div>
-                      <Badge variant="outline" className="bg-white">
-                        {product.sku_manufacturer || "S/SKU"}
-                      </Badge>
+                      <CardDescription>{product.category}</CardDescription>
                     </div>
-                    {/* Ações de Edição/Exclusão */}
+                    {/* Ações de Edição/Exclusão (Agora sem sobreposição) */}
                     <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button
                         size="icon"
-                        className="h-8 w-8 bg-white border hover:text-blue-600 rounded-lg"
+                        className="h-8 w-8 bg-white border hover:text-blue-600 rounded-lg shadow-sm"
                         onClick={() => handleEditProduct(product)}
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button size="icon" className="h-8 w-8 bg-white border hover:text-red-600 rounded-lg">
+                          <Button
+                            size="icon"
+                            className="h-8 w-8 bg-white border hover:text-red-600 rounded-lg shadow-sm"
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </AlertDialogTrigger>
