@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,7 +23,6 @@ import {
   Settings,
   LogOut,
   Image as ImageIcon,
-  Save,
   Loader2,
   PackageOpen,
   Pencil,
@@ -31,6 +30,7 @@ import {
   X,
   UploadCloud,
   Search,
+  ScanLine,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -93,13 +93,11 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
       const file = event.target.files?.[0];
       if (!file) return;
       setUploading(true);
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${userId}-${Math.random()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage.from("material-images").upload(fileName, file);
-      if (uploadError) throw uploadError;
+      const fileName = `${userId}-${Math.random()}.${file.name.split(".").pop()}`;
+      await supabase.storage.from("material-images").upload(fileName, file);
       const { data } = supabase.storage.from("material-images").getPublicUrl(fileName);
       setNewMaterial((prev) => ({ ...prev, image_url: data.publicUrl }));
-      toast({ title: "Imagem carregada" });
+      toast({ title: "Amostra carregada" });
     } catch (error: any) {
       toast({ title: "Erro", description: "Máx 2MB.", variant: "destructive" });
     } finally {
@@ -107,164 +105,142 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
     }
   };
 
-  const handleEditClick = (material: Material) => {
-    setEditingId(material.id);
-    setNewMaterial({
-      name: material.name,
-      type: material.type,
-      description: material.description || "",
-      sku_supplier: material.sku_supplier || "",
-      image_url: material.image_url || "",
-    });
-    setActiveTab("new-material");
-  };
-  const handleCancelEdit = () => {
-    setEditingId(null);
-    setNewMaterial({ name: "", type: "", description: "", sku_supplier: "", image_url: "" });
-    setActiveTab("catalog");
-  };
-
-  const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("materials").update({ is_active: false }).eq("id", id);
-    if (!error) {
-      toast({ title: "Material Arquivado" });
-      fetchMaterials();
-    }
-  };
-
   const handleSaveMaterial = async () => {
     if (!newMaterial.name || !newMaterial.type) {
-      toast({ title: "Erro", description: "Preencha nome e tipo.", variant: "destructive" });
+      toast({ title: "Erro", description: "Dados incompletos.", variant: "destructive" });
       return;
     }
     setLoading(true);
-    try {
-      const materialData = {
-        supplier_id: userId,
-        name: newMaterial.name,
-        type: newMaterial.type,
-        sku_supplier: newMaterial.sku_supplier,
-        description: newMaterial.description,
-        image_url: newMaterial.image_url,
-        is_active: true,
-      };
-      if (editingId) {
-        await supabase.from("materials").update(materialData).eq("id", editingId);
-        toast({ title: "Atualizado", className: "bg-primary text-white border-none" });
-      } else {
-        await supabase.from("materials").insert(materialData);
-        toast({ title: "Cadastrado", className: "bg-primary text-white border-none" });
-      }
-      setNewMaterial({ name: "", type: "", description: "", sku_supplier: "", image_url: "" });
-      setEditingId(null);
-      fetchMaterials();
-      setActiveTab("catalog");
-    } catch (error: any) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
+    const payload = {
+      supplier_id: userId,
+      name: newMaterial.name,
+      type: newMaterial.type,
+      sku_supplier: newMaterial.sku_supplier,
+      description: newMaterial.description,
+      image_url: newMaterial.image_url,
+      is_active: true,
+    };
+    if (editingId) await supabase.from("materials").update(payload).eq("id", editingId);
+    else await supabase.from("materials").insert(payload);
+    toast({ title: "Salvo com sucesso", className: "bg-[#103927] text-white" });
+    setNewMaterial({ name: "", type: "", description: "", sku_supplier: "", image_url: "" });
+    setEditingId(null);
+    fetchMaterials();
+    setActiveTab("catalog");
+    setLoading(false);
   };
 
-  const filteredMaterials = materials.filter(
-    (m) =>
-      m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.type.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+  const handleDelete = async (id: string) => {
+    await supabase.from("materials").update({ is_active: false }).eq("id", id);
+    toast({ title: "Material Arquivado" });
+    fetchMaterials();
+  };
+
+  const handleEditClick = (m: Material) => {
+    setEditingId(m.id);
+    setNewMaterial({ ...m, image_url: m.image_url || "" });
+    setActiveTab("new-material");
+  };
+  const filteredMaterials = materials.filter((m) => m.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
-    <div className="min-h-screen bg-background p-6 md:p-10 font-sans text-foreground transition-colors duration-500">
-      <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+    <div className="min-h-screen bg-background p-6 md:p-12 font-sans text-foreground">
+      <header className="flex justify-between items-end mb-12 pb-6 border-b border-border/40">
         <div>
-          <h1 className="text-4xl font-serif font-medium text-foreground">
-            Portal do <span className="italic text-blue-700">Fornecedor</span>
-          </h1>
-          <p className="text-muted-foreground mt-2 font-light">
-            Gerencie seu catálogo de matérias-primas de alto padrão.
-          </p>
+          <h2 className="text-sm font-sans tracking-[0.2em] uppercase text-muted-foreground mb-2">
+            Área do Fornecedor
+          </h2>
+          <h1 className="text-4xl font-serif font-medium text-foreground">Acervo de Materiais</h1>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-4">
           <Button onClick={signOut} variant="ghost" className="text-destructive hover:bg-destructive/10 rounded-xl">
             Sair
+          </Button>
+          <Button
+            className="rounded-full bg-blue-700 hover:bg-blue-800 text-white px-6"
+            onClick={() => {
+              setEditingId(null);
+              setActiveTab("new-material");
+            }}
+          >
+            <Plus className="w-4 h-4 mr-2" /> Novo Item
           </Button>
         </div>
       </header>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-        <TabsList className="bg-white/50 backdrop-blur-sm p-1 rounded-full border border-border shadow-sm inline-flex">
-          <TabsTrigger
-            value="overview"
-            className="rounded-full px-6 data-[state=active]:bg-blue-700 data-[state=active]:text-white"
-          >
-            Visão Geral
-          </TabsTrigger>
-          <TabsTrigger
-            value="catalog"
-            className="rounded-full px-6 data-[state=active]:bg-blue-700 data-[state=active]:text-white"
-          >
-            Meu Catálogo
-          </TabsTrigger>
-          <TabsTrigger
-            value="new-material"
-            className="rounded-full px-6 data-[state=active]:bg-blue-700 data-[state=active]:text-white"
-          >
-            {editingId ? "Editor" : "Novo Material"}
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-10">
+        <div className="flex justify-center">
+          <TabsList className="bg-white/80 backdrop-blur p-1.5 rounded-full border border-border/60 shadow-sm inline-flex">
+            <TabsTrigger
+              value="overview"
+              className="rounded-full px-8 py-2.5 data-[state=active]:bg-blue-700 data-[state=active]:text-white"
+            >
+              Painel
+            </TabsTrigger>
+            <TabsTrigger
+              value="catalog"
+              className="rounded-full px-8 py-2.5 data-[state=active]:bg-blue-700 data-[state=active]:text-white"
+            >
+              Catálogo
+            </TabsTrigger>
+            <TabsTrigger
+              value="new-material"
+              className="rounded-full px-8 py-2.5 data-[state=active]:bg-blue-700 data-[state=active]:text-white"
+            >
+              {editingId ? "Editor" : "Cadastro"}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="catalog">
-          <div className="mb-6 relative max-w-md">
-            <Search className="absolute left-4 top-3.5 h-4 w-4 text-muted-foreground" />
+          <div className="mb-8 relative max-w-xl mx-auto">
+            <Search className="absolute left-5 top-4 h-5 w-5 text-muted-foreground" />
             <Input
-              placeholder="Filtrar..."
-              className="pl-12 h-12 rounded-xl bg-white border-transparent shadow-sm"
+              placeholder="Buscar por nome, tipo ou referência..."
+              className="pl-14 h-14 rounded-full bg-white border-transparent shadow-sm text-lg focus:ring-2 focus:ring-blue-700/20 transition-all"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+
           {filteredMaterials.length === 0 ? (
-            <div className="text-center py-24 bg-white/50 rounded-3xl border border-dashed">
-              <PackageOpen className="h-12 w-12 mx-auto text-muted-foreground opacity-30 mb-4" />
-              <h3 className="text-xl font-serif text-foreground">Nenhum material</h3>
-              <Button onClick={() => setActiveTab("new-material")} variant="link" className="mt-2 text-blue-700">
-                Cadastrar primeiro item
-              </Button>
+            <div className="text-center py-24 bg-white/50 rounded-[3rem] border border-dashed">
+              <PackageOpen className="h-16 w-16 mx-auto text-blue-200 mb-6" />
+              <h3 className="text-2xl font-serif text-foreground">Acervo Vazio</h3>
+              <p className="text-muted-foreground mt-2">Comece a digitalizar suas texturas.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-8">
               {filteredMaterials.map((material) => (
                 <Card
                   key={material.id}
-                  className="group rounded-2xl border-none shadow-md hover:shadow-xl transition-all duration-500 bg-white overflow-hidden"
+                  className="group rounded-[2rem] border-none shadow-lg hover:shadow-2xl transition-all duration-500 bg-white overflow-hidden cursor-pointer"
                 >
-                  <div className="h-56 bg-secondary/20 relative group-hover:bg-secondary/30 transition-colors overflow-hidden">
+                  <div className="h-64 relative overflow-hidden">
                     {material.image_url ? (
                       <img
                         src={material.image_url}
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                       />
                     ) : (
-                      <div className="flex items-center justify-center h-full text-muted-foreground">
-                        <ImageIcon className="h-10 w-10 opacity-20" />
+                      <div className="w-full h-full bg-secondary/30 flex items-center justify-center">
+                        <ImageIcon className="h-12 w-12 opacity-10" />
                       </div>
                     )}
-                    <span className="absolute top-3 left-3 bg-white/90 backdrop-blur px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider text-foreground shadow-sm">
+                    <span className="absolute top-4 left-4 bg-white/95 backdrop-blur px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest text-foreground shadow-sm">
                       {material.type}
                     </span>
-                    <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 translate-y-2 group-hover:translate-y-0">
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-4">
                       <Button
                         size="icon"
-                        className="h-8 w-8 rounded-lg bg-white text-foreground hover:text-blue-600 shadow-sm"
+                        className="rounded-full bg-white text-foreground hover:bg-blue-50"
                         onClick={() => handleEditClick(material)}
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button
-                            size="icon"
-                            className="h-8 w-8 rounded-lg bg-white text-foreground hover:text-destructive shadow-sm"
-                          >
+                          <Button size="icon" className="rounded-full bg-white text-destructive hover:bg-red-50">
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </AlertDialogTrigger>
@@ -273,22 +249,22 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
                             <AlertDialogTitle>Arquivar?</AlertDialogTitle>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
-                            <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
+                            <AlertDialogCancel className="rounded-xl">Não</AlertDialogCancel>
                             <AlertDialogAction
                               onClick={() => handleDelete(material.id)}
                               className="bg-destructive rounded-xl"
                             >
-                              Arquivar
+                              Sim, Arquivar
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
                     </div>
                   </div>
-                  <CardContent className="p-5">
-                    <h3 className="font-serif font-medium text-lg truncate text-foreground">{material.name}</h3>
-                    <p className="text-xs text-muted-foreground mt-1 font-mono">
-                      REF: {material.sku_supplier || "---"}
+                  <CardContent className="p-6">
+                    <h3 className="font-serif font-medium text-xl truncate text-foreground">{material.name}</h3>
+                    <p className="text-xs text-muted-foreground mt-2 font-mono flex items-center gap-2">
+                      <ScanLine className="w-3 h-3" /> {material.sku_supplier || "S/REF"}
                     </p>
                   </CardContent>
                 </Card>
@@ -298,136 +274,124 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
         </TabsContent>
 
         <TabsContent value="new-material">
-          <div className="grid gap-8 md:grid-cols-3">
-            <div className="md:col-span-2 space-y-6">
-              <Card className="rounded-3xl border-none shadow-xl bg-white overflow-hidden">
-                <CardHeader className="bg-secondary/10 pb-6 pt-6">
-                  <CardTitle className="text-2xl font-serif text-blue-900">
-                    {editingId ? "Editando" : "Ficha do Material"}
-                  </CardTitle>
+          <div className="grid gap-12 md:grid-cols-12 max-w-6xl mx-auto">
+            <div className="md:col-span-7 space-y-8">
+              <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-border/50">
+                <div className="flex justify-between items-center mb-8">
+                  <h3 className="text-3xl font-serif text-blue-900">{editingId ? "Editando Item" : "Nova Amostra"}</h3>
                   {editingId && (
                     <Button
                       variant="ghost"
-                      size="sm"
-                      onClick={handleCancelEdit}
-                      className="absolute top-6 right-6 rounded-xl"
+                      onClick={() => {
+                        setEditingId(null);
+                        setNewMaterial({ name: "", type: "", description: "", sku_supplier: "", image_url: "" });
+                        setActiveTab("catalog");
+                      }}
+                      className="rounded-full"
                     >
                       Cancelar
                     </Button>
                   )}
-                </CardHeader>
-                <CardContent className="p-8 space-y-6">
-                  <div className="grid gap-2">
-                    <Label>Nome Comercial</Label>
+                </div>
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <Label className="uppercase text-xs tracking-wider text-muted-foreground">Nome do Material</Label>
                     <Input
-                      className="h-12 rounded-xl bg-secondary/10 border-transparent focus:bg-white"
+                      className="h-14 rounded-2xl bg-secondary/10 border-0 text-lg focus:ring-1 focus:ring-blue-700"
                       value={newMaterial.name}
                       onChange={(e) => setNewMaterial({ ...newMaterial, name: e.target.value })}
+                      placeholder="Ex: Carvalho Americano"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label>Tipo</Label>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label className="uppercase text-xs tracking-wider text-muted-foreground">Categoria</Label>
                       <Select
                         value={newMaterial.type}
                         onValueChange={(val) => setNewMaterial({ ...newMaterial, type: val })}
                       >
-                        <SelectTrigger className="h-12 rounded-xl bg-secondary/10 border-transparent">
+                        <SelectTrigger className="h-14 rounded-2xl bg-secondary/10 border-0">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="max-h-[300px]">
+                        <SelectContent className="rounded-xl">
                           <SelectGroup>
-                            <SelectLabel>Madeiras</SelectLabel>
+                            <SelectLabel>Naturais</SelectLabel>
                             <SelectItem value="Madeira Maciça">Madeira Maciça</SelectItem>
                             <SelectItem value="Lâmina Natural">Lâmina Natural</SelectItem>
+                            <SelectItem value="Pedra Natural">Pedra Natural</SelectItem>
                           </SelectGroup>
                           <SelectGroup>
                             <SelectLabel>Tecidos</SelectLabel>
-                            <SelectItem value="Tecido Plano">Tecido Plano</SelectItem>
+                            <SelectItem value="Linho">Linho</SelectItem>
                             <SelectItem value="Couro Natural">Couro Natural</SelectItem>
+                            <SelectItem value="Veludo">Veludo</SelectItem>
                           </SelectGroup>
                           <SelectGroup>
                             <SelectLabel>Metais</SelectLabel>
                             <SelectItem value="Aço Carbono">Aço Carbono</SelectItem>
-                            <SelectItem value="Alumínio">Alumínio</SelectItem>
-                          </SelectGroup>
-                          <SelectGroup>
-                            <SelectLabel>Pedras</SelectLabel>
-                            <SelectItem value="Mármore">Mármore</SelectItem>
-                            <SelectItem value="Granito">Granito</SelectItem>
+                            <SelectItem value="Latão">Latão</SelectItem>
                           </SelectGroup>
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="grid gap-2">
-                      <Label>Ref</Label>
+                    <div className="space-y-2">
+                      <Label className="uppercase text-xs tracking-wider text-muted-foreground">Referência / SKU</Label>
                       <Input
-                        className="h-12 rounded-xl bg-secondary/10 border-transparent"
+                        className="h-14 rounded-2xl bg-secondary/10 border-0"
                         value={newMaterial.sku_supplier}
                         onChange={(e) => setNewMaterial({ ...newMaterial, sku_supplier: e.target.value })}
                       />
                     </div>
                   </div>
-                  <div className="grid gap-2">
-                    <Label>Descrição</Label>
+                  <div className="space-y-2">
+                    <Label className="uppercase text-xs tracking-wider text-muted-foreground">
+                      Especificações Técnicas
+                    </Label>
                     <Textarea
-                      className="min-h-[100px] rounded-xl bg-secondary/10 border-transparent p-4"
+                      className="min-h-[120px] rounded-2xl bg-secondary/10 border-0 p-5 text-base"
                       value={newMaterial.description}
                       onChange={(e) => setNewMaterial({ ...newMaterial, description: e.target.value })}
+                      placeholder="Gramatura, resistência, acabamento..."
                     />
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </div>
-            <div className="space-y-6">
-              <Card className="rounded-3xl border-none shadow-lg bg-white">
-                <CardHeader className="pb-4 px-6 pt-6">
-                  <CardTitle className="text-lg font-serif">Amostra</CardTitle>
-                </CardHeader>
-                <CardContent className="p-6 pt-2">
+            <div className="md:col-span-5 space-y-6">
+              <div className="bg-white p-8 rounded-[2.5rem] shadow-lg border border-border/50 h-full flex flex-col">
+                <h4 className="font-serif text-xl mb-6">Textura Digital</h4>
+                <div
+                  onClick={() => document.getElementById("up-mat")?.click()}
+                  className="flex-1 min-h-[300px] rounded-[2rem] border-2 border-dashed border-blue-200 bg-blue-50/50 flex flex-col items-center justify-center cursor-pointer hover:bg-blue-50 transition-all overflow-hidden relative group"
+                >
                   {newMaterial.image_url ? (
-                    <div className="relative rounded-2xl overflow-hidden h-64 border border-border group">
-                      <img src={newMaterial.image_url} className="w-full h-full object-cover" />
-                      <div
-                        className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                        onClick={() => document.getElementById("up-mat")?.click()}
-                      >
-                        <UploadCloud className="h-8 w-8 text-white" />
-                      </div>
-                    </div>
+                    <img src={newMaterial.image_url} className="w-full h-full object-cover" />
                   ) : (
-                    <div
-                      className="h-64 border-2 border-dashed border-border rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-secondary/10"
-                      onClick={() => document.getElementById("up-mat")?.click()}
-                    >
-                      {uploading ? (
-                        <Loader2 className="animate-spin text-blue-600" />
-                      ) : (
-                        <ImageIcon className="h-8 w-8 text-muted-foreground opacity-30" />
-                      )}
+                    <div className="text-center text-blue-300">
+                      <UploadCloud className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                      <span className="font-medium">Upload da Textura</span>
+                    </div>
+                  )}
+                  {newMaterial.image_url && (
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white font-medium">
+                      Trocar Imagem
                     </div>
                   )}
                   <input id="up-mat" type="file" className="hidden" onChange={handleImageUpload} disabled={uploading} />
-                </CardContent>
-              </Card>
-              <Button
-                className={`w-full h-14 text-lg font-serif rounded-2xl shadow-xl ${editingId ? "bg-blue-900" : "bg-blue-600"}`}
-                onClick={handleSaveMaterial}
-                disabled={loading || uploading}
-              >
-                {loading ? (
-                  <Loader2 className="animate-spin" />
-                ) : editingId ? (
-                  "Salvar Alterações"
-                ) : (
-                  "Cadastrar Material"
-                )}
-              </Button>
+                </div>
+                <Button
+                  className={`w-full h-14 mt-6 text-lg rounded-2xl shadow-xl ${editingId ? "bg-blue-900" : "bg-blue-700 hover:bg-blue-800"}`}
+                  onClick={handleSaveMaterial}
+                  disabled={loading || uploading}
+                >
+                  {loading ? <Loader2 className="animate-spin" /> : "Salvar no Acervo"}
+                </Button>
+              </div>
             </div>
           </div>
         </TabsContent>
         <TabsContent value="overview">
-          <div className="text-center py-24 opacity-50">Em construção.</div>
+          <div className="text-center py-24 opacity-50">Dashboard em breve.</div>
         </TabsContent>
       </Tabs>
     </div>
