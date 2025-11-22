@@ -93,7 +93,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
     .filter((m) => selectedCategory === "todos" || getCategoryGroup(m.type) === selectedCategory)
     .reduce(
       (acc, current) => {
-        // Aqui estava o erro: item.id é onde guardamos o supplier_id na linha do return abaixo
+        // CORREÇÃO AQUI: Usamos item.id pois é assim que salvamos no acumulador
         const exists = acc.find((item) => item.id === current.supplier_id);
         if (!exists) {
           return acc.concat([{ id: current.supplier_id, name: current.supplier_name || "Fornecedor Sem Nome" }]);
