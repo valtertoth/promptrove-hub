@@ -369,6 +369,7 @@ export type Database = {
           name: string
           sku_supplier: string | null
           supplier_id: string
+          supplier_name: string | null
           type: string
         }
         Insert: {
@@ -380,6 +381,7 @@ export type Database = {
           name: string
           sku_supplier?: string | null
           supplier_id: string
+          supplier_name?: string | null
           type: string
         }
         Update: {
@@ -391,6 +393,7 @@ export type Database = {
           name?: string
           sku_supplier?: string | null
           supplier_id?: string
+          supplier_name?: string | null
           type?: string
         }
         Relationships: []
