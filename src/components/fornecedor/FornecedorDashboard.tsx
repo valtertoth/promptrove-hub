@@ -21,6 +21,7 @@ import {
   Pencil,
   Trash2,
   X,
+  UploadCloud,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import {
@@ -45,15 +46,15 @@ interface Material {
   type: string;
   description: string;
   sku_supplier: string;
+  image_url: string | null;
 }
 
 const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
   const { signOut } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false); // Estado para o upload
   const [materials, setMaterials] = useState<Material[]>([]);
-  const [activeTab, setActiveTab] = useState("catalog"); // Controle manual da aba
-
-  // Estado para saber se estamos editando alguém
+  const [activeTab, setActiveTab] = useState("catalog");
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const [newMaterial, setNewMaterial] = useState({
@@ -61,6 +62,7 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
     type: "",
     description: "",
     sku_supplier: "",
+    image_url: "", // Novo campo para a URL da imagem
   });
 
   useEffect(() => {
@@ -78,7 +80,49 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
     if (error) console.error("Erro ao buscar:", error);
   };
 
-  // Função para preparar a EDIÇÃO
+  // Lógica de Upload de Imagem
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      setUploading(true);
+
+      // 1. Criar nome único para o arquivo
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${userId}-${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      // 2. Subir para o Supabase Storage
+      const { error: uploadError } = await supabase.storage.from("material-images").upload(filePath, file);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // 3. Pegar a URL pública
+      const { data } = supabase.storage.from("material-images").getPublicUrl(filePath);
+
+      // 4. Salvar URL no estado
+      setNewMaterial((prev) => ({ ...prev, image_url: data.publicUrl }));
+
+      toast({
+        title: "Imagem carregada",
+        description: "A foto foi enviada com sucesso.",
+        className: "bg-green-600 text-white border-none",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Erro no upload",
+        description: "Verifique se o tamanho é menor que 2MB.",
+        variant: "destructive",
+      });
+      console.error(error);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleEditClick = (material: Material) => {
     setEditingId(material.id);
     setNewMaterial({
@@ -86,18 +130,17 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
       type: material.type,
       description: material.description || "",
       sku_supplier: material.sku_supplier || "",
+      image_url: material.image_url || "",
     });
-    setActiveTab("new-material"); // Leva o usuário para o formulário
+    setActiveTab("new-material");
   };
 
-  // Função para cancelar edição
   const handleCancelEdit = () => {
     setEditingId(null);
-    setNewMaterial({ name: "", type: "", description: "", sku_supplier: "" });
+    setNewMaterial({ name: "", type: "", description: "", sku_supplier: "", image_url: "" });
     setActiveTab("catalog");
   };
 
-  // Função para EXCLUIR
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from("materials").delete().eq("id", id);
     if (!error) {
@@ -120,39 +163,29 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
 
     setLoading(true);
     try {
-      if (editingId) {
-        // MODO ATUALIZAÇÃO (UPDATE)
-        const { error } = await supabase
-          .from("materials")
-          .update({
-            name: newMaterial.name,
-            type: newMaterial.type,
-            sku_supplier: newMaterial.sku_supplier,
-            description: newMaterial.description,
-          })
-          .eq("id", editingId);
+      const materialData = {
+        supplier_id: userId,
+        name: newMaterial.name,
+        type: newMaterial.type,
+        sku_supplier: newMaterial.sku_supplier,
+        description: newMaterial.description,
+        image_url: newMaterial.image_url, // Salvando a foto no banco
+      };
 
+      if (editingId) {
+        const { error } = await supabase.from("materials").update(materialData).eq("id", editingId);
         if (error) throw error;
         toast({ title: "Material Atualizado", className: "bg-blue-600 text-white border-none" });
       } else {
-        // MODO CRIAÇÃO (INSERT)
-        const { error } = await supabase.from("materials").insert({
-          supplier_id: userId,
-          name: newMaterial.name,
-          type: newMaterial.type,
-          sku_supplier: newMaterial.sku_supplier,
-          description: newMaterial.description,
-        });
-
+        const { error } = await supabase.from("materials").insert(materialData);
         if (error) throw error;
         toast({ title: "Material Cadastrado", className: "bg-emerald-600 text-white border-none" });
       }
 
-      // Limpeza e Redirecionamento
-      setNewMaterial({ name: "", type: "", description: "", sku_supplier: "" });
+      setNewMaterial({ name: "", type: "", description: "", sku_supplier: "", image_url: "" });
       setEditingId(null);
       fetchMaterials();
-      setActiveTab("catalog"); // Volta para o catálogo após salvar
+      setActiveTab("catalog");
     } catch (error: any) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } finally {
@@ -162,7 +195,6 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] p-6 md:p-10 font-sans">
-      {/* Header */}
       <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-3xl font-light tracking-tight text-gray-900">
@@ -187,7 +219,6 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
         </div>
       </header>
 
-      {/* Controle de Abas via State para permitir navegação automática */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
         <div className="flex justify-start">
           <TabsList className="bg-white p-1.5 rounded-2xl border border-gray-100 shadow-sm inline-flex h-auto gap-1">
@@ -223,7 +254,6 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
           </Card>
         </TabsContent>
 
-        {/* ABA CATÁLOGO: Agora com botões de Ação */}
         <TabsContent value="catalog">
           {materials.length === 0 ? (
             <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-200">
@@ -241,20 +271,23 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
                   key={material.id}
                   className="group rounded-2xl border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 bg-white overflow-hidden"
                 >
-                  {/* Área da Imagem */}
-                  <div className="h-40 bg-gray-100 relative group-hover:bg-gray-50 transition-colors">
-                    <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-                      <ImageIcon className="h-8 w-8 opacity-30" />
-                    </div>
+                  {/* IMAGEM NO CARD */}
+                  <div className="h-48 bg-gray-100 relative group-hover:bg-gray-50 transition-colors overflow-hidden">
+                    {material.image_url ? (
+                      <img src={material.image_url} alt={material.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+                        <ImageIcon className="h-8 w-8 opacity-30" />
+                      </div>
+                    )}
                     <span className="absolute top-3 left-3 bg-white/90 backdrop-blur px-2 py-1 rounded-lg text-xs font-medium uppercase tracking-wide text-gray-600 shadow-sm">
                       {material.type}
                     </span>
 
-                    {/* Ações Flutuantes (Só aparecem no Hover) */}
                     <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button
                         size="icon"
-                        className="h-8 w-8 rounded-lg bg-white text-gray-700 hover:text-blue-600 hover:bg-blue-50 shadow-sm border border-gray-100"
+                        className="h-8 w-8 rounded-lg bg-white text-gray-700 hover:text-blue-600 shadow-sm border border-gray-100"
                         onClick={() => handleEditClick(material)}
                       >
                         <Pencil className="h-4 w-4" />
@@ -264,7 +297,7 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
                         <AlertDialogTrigger asChild>
                           <Button
                             size="icon"
-                            className="h-8 w-8 rounded-lg bg-white text-gray-700 hover:text-red-600 hover:bg-red-50 shadow-sm border border-gray-100"
+                            className="h-8 w-8 rounded-lg bg-white text-gray-700 hover:text-red-600 shadow-sm border border-gray-100"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -272,17 +305,14 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
                         <AlertDialogContent className="rounded-2xl">
                           <AlertDialogHeader>
                             <AlertDialogTitle>Excluir Material?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Esta ação não pode ser desfeita. O material será removido do catálogo.
-                            </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
                             <AlertDialogAction
                               onClick={() => handleDelete(material.id)}
-                              className="bg-red-600 rounded-xl hover:bg-red-700"
+                              className="bg-red-600 rounded-xl"
                             >
-                              Sim, excluir
+                              Excluir
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
@@ -292,12 +322,7 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
 
                   <CardContent className="p-5">
                     <h3 className="font-semibold text-gray-900 truncate text-lg">{material.name}</h3>
-                    <p className="text-sm text-gray-500 mb-1">
-                      Ref: <span className="font-mono text-xs text-gray-400">{material.sku_supplier || "S/N"}</span>
-                    </p>
-                    <p className="text-xs text-gray-400 line-clamp-2 mt-2">
-                      {material.description || "Sem descrição técnica detalhada."}
-                    </p>
+                    <p className="text-sm text-gray-500 mb-1">Ref: {material.sku_supplier || "S/N"}</p>
                   </CardContent>
                 </Card>
               ))}
@@ -305,7 +330,6 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
           )}
         </TabsContent>
 
-        {/* ABA FORMULÁRIO (Criação e Edição) */}
         <TabsContent value="new-material">
           <div className="grid gap-8 md:grid-cols-3">
             <div className="md:col-span-2 space-y-6">
@@ -315,11 +339,7 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
                     <CardTitle className="text-lg font-medium text-gray-800">
                       {editingId ? "Editando Matéria-Prima" : "Detalhes da Matéria-Prima"}
                     </CardTitle>
-                    <CardDescription>
-                      {editingId
-                        ? "Ajuste as informações do item existente."
-                        : "Cadastre seus tecidos, madeiras ou metais para as fábricas."}
-                    </CardDescription>
+                    <CardDescription>Cadastre seus tecidos, madeiras ou metais.</CardDescription>
                   </div>
                   {editingId && (
                     <Button
@@ -328,34 +348,28 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
                       onClick={handleCancelEdit}
                       className="text-gray-500 hover:text-gray-700 rounded-xl"
                     >
-                      <X className="mr-2 h-4 w-4" /> Cancelar Edição
+                      <X className="mr-2 h-4 w-4" /> Cancelar
                     </Button>
                   )}
                 </CardHeader>
                 <CardContent className="p-6 space-y-6">
                   <div className="grid gap-2">
-                    <Label htmlFor="name" className="text-gray-700">
-                      Nome Comercial <span className="text-red-500">*</span>
-                    </Label>
+                    <Label htmlFor="name">Nome Comercial *</Label>
                     <Input
                       id="name"
-                      placeholder="Ex: Linho Cru Premium, Carvalho Americano"
-                      className="h-12 rounded-xl border-gray-200 bg-gray-50/30 focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all font-medium"
+                      className="h-12 rounded-xl bg-gray-50/30"
                       value={newMaterial.name}
                       onChange={(e) => setNewMaterial({ ...newMaterial, name: e.target.value })}
                     />
                   </div>
-
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
-                      <Label className="text-gray-700">
-                        Tipo de Material <span className="text-red-500">*</span>
-                      </Label>
+                      <Label>Tipo *</Label>
                       <Select
                         value={newMaterial.type}
                         onValueChange={(val) => setNewMaterial({ ...newMaterial, type: val })}
                       >
-                        <SelectTrigger className="h-12 rounded-xl border-gray-200 bg-gray-50/30 focus:bg-white focus:ring-2 focus:ring-blue-100">
+                        <SelectTrigger className="h-12 rounded-xl bg-gray-50/30">
                           <SelectValue placeholder="Selecione..." />
                         </SelectTrigger>
                         <SelectContent>
@@ -368,27 +382,18 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
                       </Select>
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="sku" className="text-gray-700">
-                        Seu Código (Ref)
-                      </Label>
+                      <Label>Ref</Label>
                       <Input
-                        id="sku"
-                        placeholder="Ex: TEC-001"
-                        className="h-12 rounded-xl border-gray-200 bg-gray-50/30 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                        className="h-12 rounded-xl bg-gray-50/30"
                         value={newMaterial.sku_supplier}
                         onChange={(e) => setNewMaterial({ ...newMaterial, sku_supplier: e.target.value })}
                       />
                     </div>
                   </div>
-
                   <div className="grid gap-2">
-                    <Label htmlFor="desc" className="text-gray-700">
-                      Descrição Técnica
-                    </Label>
+                    <Label>Descrição</Label>
                     <Textarea
-                      id="desc"
-                      placeholder="Composição, gramatura, resistência UV, cuidados..."
-                      className="min-h-[120px] rounded-xl border-gray-200 bg-gray-50/30 resize-none focus:bg-white focus:ring-2 focus:ring-blue-100 p-4"
+                      className="min-h-[120px] rounded-xl bg-gray-50/30"
                       value={newMaterial.description}
                       onChange={(e) => setNewMaterial({ ...newMaterial, description: e.target.value })}
                     />
@@ -397,41 +402,70 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
               </Card>
             </div>
 
-            {/* Coluna Direita */}
             <div className="space-y-6">
+              {/* COMPONENTE DE UPLOAD DE IMAGEM ATIVO */}
               <Card className="rounded-2xl border-gray-100 shadow-lg bg-white">
                 <CardHeader className="pb-4 px-6 pt-6">
                   <CardTitle className="text-lg font-medium text-gray-800">Amostra Visual</CardTitle>
-                  <CardDescription>Foto em alta qualidade da textura.</CardDescription>
+                  <CardDescription>Foto da textura (Max 2MB)</CardDescription>
                 </CardHeader>
                 <CardContent className="p-6 pt-2">
-                  <div className="border-2 border-dashed border-gray-200 rounded-2xl h-64 flex flex-col items-center justify-center text-gray-400 hover:bg-blue-50 hover:border-blue-200 transition-all cursor-pointer bg-gray-50/50 group relative overflow-hidden">
-                    <div className="p-4 bg-white rounded-full shadow-sm mb-3 group-hover:scale-110 transition-transform duration-300 relative z-10">
-                      <ImageIcon className="h-8 w-8 text-gray-300 group-hover:text-blue-500" />
+                  {newMaterial.image_url ? (
+                    <div className="relative rounded-2xl overflow-hidden h-64 border border-gray-200 group">
+                      <img src={newMaterial.image_url} alt="Preview" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <label htmlFor="image-upload" className="cursor-pointer text-white flex flex-col items-center">
+                          <UploadCloud className="h-8 w-8 mb-2" />
+                          <span className="text-sm">Trocar Imagem</span>
+                        </label>
+                      </div>
                     </div>
-                    <span className="text-sm font-medium text-gray-500 group-hover:text-blue-600 relative z-10">
-                      Clique para enviar foto
-                    </span>
-                  </div>
+                  ) : (
+                    <label
+                      htmlFor="image-upload"
+                      className="border-2 border-dashed border-gray-200 rounded-2xl h-64 flex flex-col items-center justify-center text-gray-400 hover:bg-blue-50 hover:border-blue-200 transition-all cursor-pointer bg-gray-50/50 group"
+                    >
+                      {uploading ? (
+                        <Loader2 className="h-10 w-10 text-blue-500 animate-spin" />
+                      ) : (
+                        <>
+                          <div className="p-4 bg-white rounded-full shadow-sm mb-3 group-hover:scale-110 transition-transform">
+                            <ImageIcon className="h-8 w-8 text-gray-300 group-hover:text-blue-500" />
+                          </div>
+                          <span className="text-sm font-medium text-gray-500 group-hover:text-blue-600">
+                            Clique para enviar foto
+                          </span>
+                        </>
+                      )}
+                    </label>
+                  )}
+                  <input
+                    id="image-upload"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageUpload}
+                    disabled={uploading}
+                  />
                 </CardContent>
               </Card>
 
-              {/* BOTÃO REFEITO E INTELIGENTE (SALVAR OU ATUALIZAR) */}
+              {/* BOTÃO CORRIGIDO (Tamanho e Estilo) */}
               <Button
-                className={`w-full text-white font-semibold tracking-wide h-14 rounded-2xl shadow-xl transition-all active:scale-95 text-base flex items-center justify-center gap-2 ${
+                className={`w-full text-white font-semibold text-lg h-14 rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 ${
                   editingId
                     ? "bg-gray-900 hover:bg-black shadow-gray-900/20"
                     : "bg-blue-600 hover:bg-blue-700 shadow-blue-600/20"
                 }`}
                 onClick={handleSaveMaterial}
-                disabled={loading}
+                disabled={loading || uploading}
               >
                 {loading ? (
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  <Loader2 className="mr-2 h-6 w-6 animate-spin" />
                 ) : editingId ? (
-                  <Save className="mr-2 h-5 w-5" />
+                  <Save className="mr-2 h-6 w-6" />
                 ) : (
-                  <Plus className="mr-2 h-5 w-5" />
+                  <Plus className="mr-2 h-6 w-6" />
                 )}
                 {loading ? "Processando..." : editingId ? "Salvar Alterações" : "Cadastrar Matéria-Prima"}
               </Button>
