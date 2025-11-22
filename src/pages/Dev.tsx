@@ -1,287 +1,127 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
-import { 
-  Building2, 
-  Package, 
-  Users, 
-  Home, 
-  LogIn, 
-  LayoutDashboard, 
-  ShoppingBag,
-  RefreshCw,
-  Code
-} from 'lucide-react';
+import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Code2, Factory, Store, User, ShieldAlert } from "lucide-react";
+
+// Importando todos os Painéis
+import AdminDashboard from "@/components/admin/AdminDashboard";
+import FabricaDashboard from "@/components/fabrica/FabricaDashboard";
+import FornecedorDashboard from "@/components/fornecedor/FornecedorDashboard";
+import EspecificadorDashboard from "@/components/especificador/EspecificadorDashboard";
 
 const Dev = () => {
-  const { user, loading: authLoading } = useAuth();
-  const [currentRole, setCurrentRole] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
-  const { toast } = useToast();
+  const { user } = useAuth();
+  const [currentView, setCurrentView] = useState<"admin" | "fabrica" | "fornecedor" | "especificador">("admin");
 
-  useEffect(() => {
-    fetchCurrentRole();
-  }, [user]);
-
-  const fetchCurrentRole = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (error) throw error;
-      setCurrentRole(data?.role || null);
-    } catch (error: any) {
-      console.error('Error fetching role:', error);
-    }
-  };
-
-  const switchRole = async (role: 'fabrica' | 'fornecedor' | 'especificador') => {
-    if (!user) {
-      toast({
-        title: 'Erro',
-        description: 'Você precisa estar autenticado',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Delete existing role
-      await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', user.id);
-
-      // Insert new role
-      const { error } = await supabase
-        .from('user_roles')
-        .insert({ user_id: user.id, role });
-
-      if (error) throw error;
-
-      setCurrentRole(role);
-      toast({
-        title: 'Role alterado!',
-        description: `Agora você está como: ${role}`,
-      });
-
-      // Refresh the page to reload dashboard
-      window.location.reload();
-    } catch (error: any) {
-      toast({
-        title: 'Erro ao trocar role',
-        description: error.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const roles = [
-    {
-      id: 'fabrica',
-      name: 'Fábrica',
-      icon: Building2,
-      description: 'Gerenciar produtos e especificadores',
-      color: 'bg-blue-500',
-    },
-    {
-      id: 'fornecedor',
-      name: 'Fornecedor',
-      icon: Package,
-      description: 'Fornecer materiais para fábricas',
-      color: 'bg-green-500',
-    },
-    {
-      id: 'especificador',
-      name: 'Especificador',
-      icon: Users,
-      description: 'Especificar produtos para projetos',
-      color: 'bg-purple-500',
-    },
-  ];
-
-  const pages = [
-    { path: '/', name: 'Home', icon: Home, description: 'Página inicial pública' },
-    { path: '/auth', name: 'Autenticação', icon: LogIn, description: 'Login e cadastro' },
-    { path: '/dashboard', name: 'Dashboard', icon: LayoutDashboard, description: 'Dashboard principal (requer role)' },
-    { path: '/catalogo', name: 'Catálogo', icon: ShoppingBag, description: 'Catálogo de produtos' },
-  ];
-
-  if (authLoading) {
+  if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <h1 className="text-xl font-bold text-gray-800">Modo Desenvolvedor</h1>
+          <p className="text-gray-500 mb-4">Você precisa estar logado para simular os painéis.</p>
+          <Button onClick={() => (window.location.href = "/auth")}>Ir para Login</Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-subtle p-6">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Code className="h-8 w-8 text-primary" />
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">Modo Desenvolvedor</h1>
-              <p className="text-muted-foreground">Visualize e teste todas as interfaces</p>
+    <div className="relative min-h-screen">
+      {/* MENU FLUTUANTE DE DESENVOLVEDOR 
+        Fica fixo no canto inferior direito
+      */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="lg"
+              className="rounded-full h-14 w-14 shadow-2xl bg-gray-900 hover:bg-black border-2 border-white/20"
+            >
+              <Code2 className="h-6 w-6 text-white" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56 rounded-xl p-2">
+            <DropdownMenuLabel>Simular Perfil</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+
+            <DropdownMenuItem
+              onClick={() => setCurrentView("admin")}
+              className="cursor-pointer p-2 rounded-lg focus:bg-indigo-50 focus:text-indigo-700"
+            >
+              <ShieldAlert className="mr-2 h-4 w-4" /> Admin Master
+            </DropdownMenuItem>
+
+            <DropdownMenuItem
+              onClick={() => setCurrentView("fabrica")}
+              className="cursor-pointer p-2 rounded-lg focus:bg-gray-100"
+            >
+              <Factory className="mr-2 h-4 w-4" /> Painel Fábrica
+            </DropdownMenuItem>
+
+            <DropdownMenuItem
+              onClick={() => setCurrentView("fornecedor")}
+              className="cursor-pointer p-2 rounded-lg focus:bg-blue-50 focus:text-blue-700"
+            >
+              <Store className="mr-2 h-4 w-4" /> Painel Fornecedor
+            </DropdownMenuItem>
+
+            <DropdownMenuItem
+              onClick={() => setCurrentView("especificador")}
+              className="cursor-pointer p-2 rounded-lg focus:bg-emerald-50 focus:text-emerald-700"
+            >
+              <User className="mr-2 h-4 w-4" /> Painel Especificador
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* ÁREA DE RENDERIZAÇÃO 
+        Mostra o dashboard selecionado usando o ID do usuário logado (Simulação)
+      */}
+      <div className="animate-in fade-in duration-500">
+        {currentView === "admin" && (
+          <div className="border-4 border-indigo-500 min-h-screen relative">
+            <div className="absolute top-0 left-0 bg-indigo-500 text-white text-xs px-2 py-1 z-50">
+              MODO SIMULAÇÃO: ADMIN
             </div>
+            <AdminDashboard />
           </div>
-          {user && (
-            <Badge variant="outline" className="text-sm">
-              {user.email}
-            </Badge>
-          )}
-        </div>
-
-        {/* Current Role */}
-        {user && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Role Atual</CardTitle>
-              <CardDescription>
-                {currentRole ? `Você está visualizando como: ${currentRole}` : 'Nenhum role selecionado'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {currentRole && (
-                  <Badge className="text-lg px-4 py-2">
-                    {currentRole.toUpperCase()}
-                  </Badge>
-                )}
-                <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
-                  <p className="text-sm text-muted-foreground">
-                    💡 <strong>Dica:</strong> Use o botão flutuante no canto inferior direito para trocar rapidamente entre perfis em qualquer página!
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         )}
 
-        {/* Role Switcher */}
-        {user ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>Trocar de Perfil</CardTitle>
-              <CardDescription>
-                Selecione um perfil para visualizar sua interface específica
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {roles.map((role) => {
-                  const Icon = role.icon;
-                  const isActive = currentRole === role.id;
-
-                  return (
-                    <Button
-                      key={role.id}
-                      variant={isActive ? 'default' : 'outline'}
-                      className="h-auto p-6 flex-col items-start gap-3"
-                      onClick={() => switchRole(role.id as any)}
-                      disabled={loading || isActive}
-                    >
-                      <div className="flex items-center gap-3 w-full">
-                        <div className={`p-2 rounded-lg ${role.color} bg-opacity-20`}>
-                          <Icon className="h-6 w-6" />
-                        </div>
-                        <div className="text-left flex-1">
-                          <div className="font-semibold">{role.name}</div>
-                          {isActive && (
-                            <Badge variant="secondary" className="mt-1">
-                              Ativo
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <p className="text-xs text-muted-foreground text-left">
-                        {role.description}
-                      </p>
-                    </Button>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="border-amber-500">
-            <CardHeader>
-              <CardTitle className="text-amber-600">Autenticação Necessária</CardTitle>
-              <CardDescription>
-                Você precisa estar autenticado para trocar de perfil
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={() => navigate('/auth')}>
-                <LogIn className="h-4 w-4 mr-2" />
-                Ir para Login
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Pages Navigator */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Navegação Rápida</CardTitle>
-            <CardDescription>
-              Acesse rapidamente todas as páginas do sistema
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {pages.map((page) => {
-                const Icon = page.icon;
-                return (
-                  <Button
-                    key={page.path}
-                    variant="outline"
-                    className="h-auto p-4 justify-start gap-4"
-                    onClick={() => navigate(page.path)}
-                  >
-                    <Icon className="h-5 w-5 text-primary" />
-                    <div className="text-left">
-                      <div className="font-semibold">{page.name}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {page.description}
-                      </div>
-                    </div>
-                  </Button>
-                );
-              })}
+        {currentView === "fabrica" && (
+          <div className="border-4 border-gray-800 min-h-screen relative">
+            <div className="absolute top-0 left-0 bg-gray-800 text-white text-xs px-2 py-1 z-50">
+              MODO SIMULAÇÃO: FÁBRICA
             </div>
-          </CardContent>
-        </Card>
+            <FabricaDashboard userId={user.id} />
+          </div>
+        )}
 
-        {/* Instructions */}
-        <Card className="border-blue-500 bg-blue-500/5">
-          <CardHeader>
-            <CardTitle className="text-blue-600">Como Usar</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>1. Faça login primeiro se ainda não estiver autenticado</p>
-            <p>2. Selecione um perfil (Fábrica, Fornecedor ou Especificador)</p>
-            <p>3. Navegue para o Dashboard para ver a interface específica do perfil</p>
-            <p>4. Use a navegação rápida para acessar outras páginas</p>
-            <p>5. Troque de perfil sempre que precisar testar outra interface</p>
-          </CardContent>
-        </Card>
+        {currentView === "fornecedor" && (
+          <div className="border-4 border-blue-500 min-h-screen relative">
+            <div className="absolute top-0 left-0 bg-blue-500 text-white text-xs px-2 py-1 z-50">
+              MODO SIMULAÇÃO: FORNECEDOR
+            </div>
+            <FornecedorDashboard userId={user.id} />
+          </div>
+        )}
+
+        {currentView === "especificador" && (
+          <div className="border-4 border-emerald-500 min-h-screen relative">
+            <div className="absolute top-0 left-0 bg-emerald-500 text-white text-xs px-2 py-1 z-50">
+              MODO SIMULAÇÃO: ESPECIFICADOR
+            </div>
+            <EspecificadorDashboard userId={user.id} />
+          </div>
+        )}
       </div>
     </div>
   );
