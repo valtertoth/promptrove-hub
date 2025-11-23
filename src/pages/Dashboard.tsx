@@ -80,13 +80,6 @@ const Dashboard = () => {
         }
       }
 
-      // Atualiza Perfil
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .upsert({ id: user.id, role: role, email: user.email } as any);
-
-      if (profileError) console.error("Aviso perfil:", profileError); // Não bloqueia se falhar o perfil
-
       setUserRole(role);
       toast({ title: "Perfil ativado!", className: "bg-[#103927] text-white border-none" });
       window.location.reload();
