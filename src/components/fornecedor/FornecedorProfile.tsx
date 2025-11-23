@@ -60,8 +60,13 @@ const FornecedorProfile = ({ userId, fornecedorData, onComplete }: FornecedorPro
         const { error } = await supabase
           .from('fornecedor')
           .insert({
-            ...formData,
             user_id: userId,
+            nome: formData.nome,
+            tipo_material: formData.tipo_material,
+            descricao: formData.descricao,
+            cidade: formData.cidade,
+            estado: formData.estado,
+            pais: formData.pais,
           });
 
         if (error) throw error;
