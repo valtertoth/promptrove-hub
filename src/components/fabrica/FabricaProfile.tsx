@@ -1,3 +1,4 @@
+// Versão Atelier V2 - Perfil Fabrica Premium
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -76,7 +77,6 @@ const FabricaProfile = ({ userId, fabricaData, onComplete }: FabricaProfileProps
       const fileExt = file.name.split(".").pop();
       const fileName = `${userId}-${field}-${Math.random()}.${fileExt}`;
 
-      // Usa o bucket de imagens
       const { error: uploadError } = await supabase.storage.from("material-images").upload(fileName, file);
 
       if (uploadError) throw uploadError;
@@ -95,9 +95,9 @@ const FabricaProfile = ({ userId, fabricaData, onComplete }: FabricaProfileProps
   const handleSave = async () => {
     setLoading(true);
     try {
-      // CORREÇÃO AQUI: Mudamos 'user_id' para 'id' e adicionamos 'as any'
+      // CORREÇÃO DE CHAVE (usando id) e CAST (as any)
       const { error } = await supabase.from("fabrica").upsert({
-        id: userId, // O banco usa 'id' como chave primária
+        id: userId,
         ...formData,
       } as any);
 
