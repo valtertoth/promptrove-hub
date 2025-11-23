@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Users, Package, Search, Trash2, LogOut, ShieldAlert, Plus, Loader2 } from "lucide-react";
+import { Users, Package, Search, Trash2, LogOut, ShieldAlert, Plus, Loader2, Pencil } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -26,6 +26,10 @@ const AdminDashboard = () => {
   // Criar Usuário Manualmente
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
   const [newUser, setNewUser] = useState({ email: "", password: "", role: "especificador", name: "" });
+
+  // Editar Role de Usuário
+  const [isEditRoleOpen, setIsEditRoleOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<any>(null);
 
   useEffect(() => {
     fetchData();
@@ -97,18 +101,26 @@ const AdminDashboard = () => {
 
     setActionLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: newUser.email,
         password: newUser.password,
         options: {
           data: {
             nome: newUser.name,
-            role: newUser.role,
           },
         },
       });
 
       if (error) throw error;
+
+      // Criar role para o novo usuário
+      if (data.user) {
+        const { error: roleError } = await supabase
+          .from("user_roles")
+          .insert({ user_id: data.user.id, role: newUser.role } as any);
+
+        if (roleError) throw roleError;
+      }
 
       toast({ title: "Usuário Criado", description: "Login disponível.", className: "bg-green-600 text-white" });
       setIsCreateUserOpen(false);
@@ -120,6 +132,35 @@ const AdminDashboard = () => {
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleEditRole = async () => {
+    if (!editingUser) return;
+
+    setActionLoading(true);
+    try {
+      const { error } = await supabase
+        .from("user_roles")
+        .update({ role: editingUser.newRole })
+        .eq("user_id", editingUser.id);
+
+      if (error) throw error;
+
+      toast({ title: "Role Atualizada", className: "bg-indigo-600 text-white" });
+      setIsEditRoleOpen(false);
+      setEditingUser(null);
+      fetchData();
+    } catch (error: any) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const openEditRole = (user: any) => {
+    const currentRole = getUserRole(user);
+    setEditingUser({ ...user, newRole: currentRole });
+    setIsEditRoleOpen(true);
   };
 
   // Função helper corrigida para lidar com possíveis estruturas diferentes de user_roles
@@ -234,7 +275,7 @@ const AdminDashboard = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="especificador">Especificador</SelectItem>
-                        <SelectItem value="fabricante">Fábrica</SelectItem>
+                        <SelectItem value="fabrica">Fábrica</SelectItem>
                         <SelectItem value="fornecedor">Fornecedor</SelectItem>
                         <SelectItem value="admin">Admin</SelectItem>
                       </SelectContent>
@@ -248,6 +289,46 @@ const AdminDashboard = () => {
                     className="bg-indigo-600 w-full rounded-xl"
                   >
                     {actionLoading ? <Loader2 className="animate-spin" /> : "Criar"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={isEditRoleOpen} onOpenChange={setIsEditRoleOpen}>
+              <DialogContent className="rounded-2xl">
+                <DialogHeader>
+                  <DialogTitle>Editar Perfil de {editingUser?.nome}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Email</Label>
+                    <Input value={editingUser?.email || ""} disabled className="bg-muted" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Nova Função</Label>
+                    <Select
+                      value={editingUser?.newRole || "especificador"}
+                      onValueChange={(val) => setEditingUser({ ...editingUser, newRole: val })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="especificador">Especificador</SelectItem>
+                        <SelectItem value="fabrica">Fábrica</SelectItem>
+                        <SelectItem value="fornecedor">Fornecedor</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    onClick={handleEditRole}
+                    disabled={actionLoading}
+                    className="bg-indigo-600 w-full rounded-xl"
+                  >
+                    {actionLoading ? <Loader2 className="animate-spin" /> : "Salvar Alterações"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -288,14 +369,24 @@ const AdminDashboard = () => {
                         </TableCell>
                         <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-destructive hover:bg-destructive/10 rounded-lg"
-                            onClick={() => handleDeleteUser(user.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="flex gap-2 justify-end">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-indigo-600 hover:bg-indigo-50 rounded-lg"
+                              onClick={() => openEditRole(user)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive hover:bg-destructive/10 rounded-lg"
+                              onClick={() => handleDeleteUser(user.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
