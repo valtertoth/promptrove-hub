@@ -27,8 +27,17 @@ const Dashboard = () => {
   }, [user, loading, navigate]);
 
   const checkUserRole = async () => {
+    if (!user) {
+      setRoleLoading(false);
+      return;
+    }
+
     try {
-      const { data } = await supabase.from("user_roles").select("role").eq("user_id", user!.id).maybeSingle();
+      const { data } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
       if (data) {
         setUserRole(data.role);
@@ -41,9 +50,21 @@ const Dashboard = () => {
   };
 
   const handleRoleSelection = async (role: "fabrica" | "fornecedor" | "especificador") => {
+    if (!user) {
+      toast({
+        title: "Sessão expirada",
+        description: "Faça login novamente para escolher um perfil.",
+        variant: "destructive",
+      });
+      navigate("/auth");
+      return;
+    }
+
     try {
       // Tenta INSERT direto primeiro (mais seguro se UPSERT falhar por falta de constraint)
-      const { error: insertError } = await supabase.from("user_roles").insert({ user_id: user!.id, role: role } as any);
+      const { error: insertError } = await supabase
+        .from("user_roles")
+        .insert({ user_id: user.id, role: role } as any);
 
       // Se der erro de duplicidade, tentamos UPDATE
       if (insertError) {
@@ -52,7 +73,7 @@ const Dashboard = () => {
           const { error: updateError } = await supabase
             .from("user_roles")
             .update({ role: role } as any)
-            .eq("user_id", user!.id);
+            .eq("user_id", user.id);
           if (updateError) throw updateError;
         } else {
           throw insertError;
@@ -62,7 +83,7 @@ const Dashboard = () => {
       // Atualiza Perfil
       const { error: profileError } = await supabase
         .from("profiles")
-        .upsert({ id: user!.id, role: role, email: user!.email } as any);
+        .upsert({ id: user.id, role: role, email: user.email } as any);
 
       if (profileError) console.error("Aviso perfil:", profileError); // Não bloqueia se falhar o perfil
 
@@ -82,10 +103,18 @@ const Dashboard = () => {
     );
   }
 
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#FAFAF9]">
+        <Loader2 className="h-8 w-8 animate-spin text-[#103927]" />
+      </div>
+    );
+  }
+
   if (userRole === "admin") return <AdminDashboard />;
-  if (userRole === "fabrica" || userRole === "fabricante") return <FabricaDashboard userId={user!.id} />;
-  if (userRole === "fornecedor") return <FornecedorDashboard userId={user!.id} />;
-  if (userRole === "especificador") return <EspecificadorDashboard userId={user!.id} />;
+  if (userRole === "fabrica" || userRole === "fabricante") return <FabricaDashboard userId={user.id} />;
+  if (userRole === "fornecedor") return <FornecedorDashboard userId={user.id} />;
+  if (userRole === "especificador") return <EspecificadorDashboard userId={user.id} />;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#FAFAF9] p-4">
