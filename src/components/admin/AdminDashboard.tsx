@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -14,9 +15,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from "@/components/ui/label";
 
 const AdminDashboard = () => {
-  const { signOut } = useAuth();
+  const navigate = useNavigate();
+  const { user, loading: authLoading, signOut } = useAuth();
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
   // Dados
   const [users, setUsers] = useState<any[]>([]);
@@ -32,8 +35,41 @@ const AdminDashboard = () => {
   const [editingUser, setEditingUser] = useState<any>(null);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    const checkAccessAndLoad = async () => {
+      if (authLoading) return;
+
+      if (!user) {
+        navigate("/auth");
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error("Erro ao verificar role de admin:", error);
+          setIsAdmin(false);
+          return;
+        }
+
+        const admin = data?.role === "admin";
+        setIsAdmin(admin);
+
+        if (admin) {
+          fetchData();
+        }
+      } catch (error) {
+        console.error("Erro inesperado ao verificar role de admin:", error);
+        setIsAdmin(false);
+      }
+    };
+
+    checkAccessAndLoad();
+  }, [user, authLoading, navigate]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -187,6 +223,35 @@ const AdminDashboard = () => {
     }
     return "sem-perfil";
   };
+
+  if (authLoading || isAdmin === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground gap-4 p-6">
+        <ShieldAlert className="h-10 w-10 text-destructive" />
+        <h1 className="text-2xl font-semibold text-center">Acesso restrito ao administrador</h1>
+        <p className="text-muted-foreground text-center max-w-xl">
+          O painel <code className="px-1 py-0.5 rounded bg-muted text-xs">/admin</code> só mostra os perfis completos quando você entra com uma conta com perfil de <strong>admin</strong>.
+          Use seu e-mail de administrador para testar ou volte para o dashboard.
+        </p>
+        <div className="flex flex-wrap justify-center gap-3 mt-2">
+          <Button variant="outline" onClick={() => navigate("/dashboard")} className="rounded-xl">
+            Voltar para o Dashboard
+          </Button>
+          <Button onClick={signOut} variant="ghost" className="text-destructive hover:bg-destructive/10 rounded-xl">
+            <LogOut className="mr-2 h-4 w-4" /> Trocar Conta
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-6 md:p-10 font-sans text-foreground transition-colors duration-500">
