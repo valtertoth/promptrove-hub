@@ -257,6 +257,7 @@ export type Database = {
       fabrica: {
         Row: {
           ativo: boolean | null
+          banner_url: string | null
           cidade: string | null
           created_at: string | null
           descricao: string | null
@@ -265,12 +266,15 @@ export type Database = {
           faqs: Json | null
           id: string
           logo_url: string | null
+          minimum_order: string | null
           nome: string
           pais: string | null
           perfil_completo_percentual: number | null
           plano: Database["public"]["Enums"]["plano_tipo"] | null
+          production_time: string | null
           redes_sociais: Json | null
           regioes_autorizadas: Json | null
+          regions: string | null
           site: string | null
           telefone: string | null
           updated_at: string | null
@@ -278,6 +282,7 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean | null
+          banner_url?: string | null
           cidade?: string | null
           created_at?: string | null
           descricao?: string | null
@@ -286,12 +291,15 @@ export type Database = {
           faqs?: Json | null
           id?: string
           logo_url?: string | null
+          minimum_order?: string | null
           nome: string
           pais?: string | null
           perfil_completo_percentual?: number | null
           plano?: Database["public"]["Enums"]["plano_tipo"] | null
+          production_time?: string | null
           redes_sociais?: Json | null
           regioes_autorizadas?: Json | null
+          regions?: string | null
           site?: string | null
           telefone?: string | null
           updated_at?: string | null
@@ -299,6 +307,7 @@ export type Database = {
         }
         Update: {
           ativo?: boolean | null
+          banner_url?: string | null
           cidade?: string | null
           created_at?: string | null
           descricao?: string | null
@@ -307,12 +316,15 @@ export type Database = {
           faqs?: Json | null
           id?: string
           logo_url?: string | null
+          minimum_order?: string | null
           nome?: string
           pais?: string | null
           perfil_completo_percentual?: number | null
           plano?: Database["public"]["Enums"]["plano_tipo"] | null
+          production_time?: string | null
           redes_sociais?: Json | null
           regioes_autorizadas?: Json | null
+          regions?: string | null
           site?: string | null
           telefone?: string | null
           updated_at?: string | null
