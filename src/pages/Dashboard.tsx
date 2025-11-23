@@ -35,12 +35,13 @@ const Dashboard = () => {
       if (data) {
         setUserRole(data.role);
       } else {
-        // Verifica metadata
+        // Verifica metadata se falhar no banco
         const metaRole = user?.user_metadata?.role;
         if (metaRole) {
-          // Força o insert com 'as any' para evitar erro de tipagem do TypeScript
-          await supabase.from("user_roles").insert({ user_id: user!.id, role: metaRole } as any);
-          setUserRole(metaRole);
+          // Tenta sincronizar se existir no metadata
+          const roleToSave = metaRole === "fabricante" ? "fabrica" : metaRole; // Correção de segurança
+          await supabase.from("user_roles").insert({ user_id: user!.id, role: roleToSave } as any);
+          setUserRole(roleToSave);
         }
       }
     } catch (error) {
@@ -50,18 +51,19 @@ const Dashboard = () => {
     }
   };
 
-  const handleRoleSelection = async (role: "fabricante" | "fornecedor" | "especificador") => {
+  // CORREÇÃO AQUI: O tipo aceito deve ser compatível com o ENUM do banco
+  const handleRoleSelection = async (role: "fabrica" | "fornecedor" | "especificador") => {
     try {
-      // CORREÇÃO AQUI: Adicionei 'as any' para passar pelo validador do TypeScript
+      // Inserindo na tabela de roles
       const { error } = await supabase.from("user_roles").insert({ user_id: user!.id, role: role } as any);
 
       if (error) throw error;
 
-      // Atualiza também o profile
+      // Atualiza também o profile para garantir sincronia
       await supabase.from("profiles").upsert({ id: user!.id, role: role, email: user!.email } as any);
 
       setUserRole(role);
-      toast({ title: "Perfil definido com sucesso!" });
+      toast({ title: "Perfil definido com sucesso!", className: "bg-[#103927] text-white border-none" });
     } catch (error: any) {
       toast({
         title: "Erro ao definir perfil",
@@ -80,12 +82,11 @@ const Dashboard = () => {
   }
 
   // Roteamento baseado no papel (Role)
-  if (!user) return null;
-  
+  // Note que agora verificamos 'fabrica' e não 'fabricante'
   if (userRole === "admin") return <AdminDashboard />;
-  if (userRole === "fabricante") return <FabricaDashboard userId={user.id} />;
-  if (userRole === "fornecedor") return <FornecedorDashboard userId={user.id} />;
-  if (userRole === "especificador") return <EspecificadorDashboard userId={user.id} />;
+  if (userRole === "fabrica" || userRole === "fabricante") return <FabricaDashboard userId={user!.id} />;
+  if (userRole === "fornecedor") return <FornecedorDashboard userId={user!.id} />;
+  if (userRole === "especificador") return <EspecificadorDashboard userId={user!.id} />;
 
   // Se não tem papel definido, mostra a tela de escolha
   return (
@@ -98,9 +99,10 @@ const Dashboard = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="grid md:grid-cols-3 gap-6">
+          {/* CORREÇÃO NO ONCLICK: Enviando 'fabrica' ao invés de 'fabricante' */}
           <div
             className="flex flex-col gap-4 p-6 rounded-2xl border hover:border-[#103927] hover:shadow-lg transition-all bg-white cursor-pointer group"
-            onClick={() => handleRoleSelection("fabricante")}
+            onClick={() => handleRoleSelection("fabrica")}
           >
             <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-[#103927] group-hover:text-white transition-colors">
               <Factory className="h-6 w-6" />
