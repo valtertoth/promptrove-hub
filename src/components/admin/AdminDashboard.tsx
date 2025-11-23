@@ -102,7 +102,7 @@ const AdminDashboard = () => {
         password: newUser.password,
         options: {
           data: {
-            full_name: newUser.name,
+            nome: newUser.name,
             role: newUser.role,
           },
         },
@@ -267,12 +267,12 @@ const AdminDashboard = () => {
               </TableHeader>
               <TableBody>
                 {users
-                  .filter((u) => (u.full_name || "").toLowerCase().includes(searchTerm.toLowerCase()))
+                  .filter((u) => (u.nome || "").toLowerCase().includes(searchTerm.toLowerCase()))
                   .map((user) => {
                     const role = getUserRole(user);
                     return (
                       <TableRow key={user.id}>
-                        <TableCell className="font-medium font-serif">{user.full_name || "---"}</TableCell>
+                        <TableCell className="font-medium font-serif">{user.nome || "---"}</TableCell>
                         <TableCell>{user.email}</TableCell>
                         <TableCell>
                           <Badge
