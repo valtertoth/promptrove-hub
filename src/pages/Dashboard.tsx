@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Factory, Store, User, Loader2, AlertTriangle } from "lucide-react";
+import { Factory, Store, User, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 import FabricaDashboard from "@/components/fabrica/FabricaDashboard";
@@ -28,7 +28,7 @@ const Dashboard = () => {
 
   const checkUserRole = async () => {
     try {
-      const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", user!.id).maybeSingle();
+      const { data } = await supabase.from("user_roles").select("role").eq("user_id", user!.id).maybeSingle();
 
       if (data) {
         setUserRole(data.role);
@@ -42,25 +42,25 @@ const Dashboard = () => {
 
   const handleRoleSelection = async (role: "fabrica" | "fornecedor" | "especificador") => {
     try {
-      // USAR UPSERT EM VEZ DE INSERT PARA EVITAR ERRO DE DUPLICATA
-      const { error } = (await supabase.from("user_roles").upsert(
-        { user_id: user!.id, role: role },
-        { onConflict: "user_id" }, // Se já existir ID, atualiza.
-      )) as any;
+      // 1. Atualiza User Roles (Usando 'as any' para evitar erro de tipo)
+      const { error } = await supabase
+        .from("user_roles")
+        .upsert({ user_id: user!.id, role: role } as any, { onConflict: "user_id" });
 
       if (error) throw error;
 
-      // Garante o perfil também
-      (await supabase
+      // 2. Atualiza Perfil (AQUI ESTAVA O ERRO: Adicionei 'as any' para corrigir)
+      await supabase
         .from("profiles")
-        .upsert({ id: user!.id, role: role, email: user!.email }, { onConflict: "id" })) as any;
+        .upsert({ id: user!.id, role: role, email: user!.email } as any, { onConflict: "id" });
 
       setUserRole(role);
       toast({ title: "Perfil ativado!", className: "bg-[#103927] text-white border-none" });
 
-      // Força recarregamento para garantir
+      // Recarrega para garantir a renderização correta
       window.location.reload();
     } catch (error: any) {
+      console.error(error);
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     }
   };
