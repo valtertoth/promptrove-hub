@@ -47,7 +47,14 @@ const FornecedorProfile = ({ userId, fornecedorData, onComplete }: FornecedorPro
       if (fornecedorData) {
         const { error } = await supabase
           .from('fornecedor')
-          .update(formData)
+          .update({
+            nome: formData.nome,
+            tipo_material: formData.tipo_material,
+            descricao: formData.descricao,
+            cidade: formData.cidade,
+            estado: formData.estado,
+            pais: formData.pais,
+          })
           .eq('id', fornecedorData.id);
 
         if (error) throw error;
