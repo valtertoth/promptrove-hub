@@ -38,24 +38,38 @@ const AdminDashboard = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. Pega perfis CONECTANDO com user_roles
-      const { data: usersData, error: userError } = await supabase
-        .from("profiles")
-        .select(
-          `
-                *,
-                user_roles (
-                    role
-                )
-            `,
-        )
-        .order("created_at", { ascending: false });
+      // Buscar perfis e roles em chamadas separadas (não depende de relacionamento configurado no banco)
+      const [profilesResult, rolesResult, productsResult] = await Promise.all([
+        supabase.from("profiles").select("*").order("created_at", { ascending: false }),
+        supabase.from("user_roles").select("user_id, role"),
+        supabase.from("products").select("*").order("created_at", { ascending: false }),
+      ]);
 
-      if (userError) throw userError;
-      if (usersData) setUsers(usersData);
+      const { data: profilesData, error: profilesError } = profilesResult;
+      const { data: rolesData, error: rolesError } = rolesResult;
+      const { data: prodData, error: prodError } = productsResult;
 
-      // 2. Pega produtos
-      const { data: prodData } = await supabase.from("products").select("*").order("created_at", { ascending: false });
+      if (profilesError) throw profilesError;
+      if (rolesError) throw rolesError;
+      if (prodError) throw prodError;
+
+      if (profilesData && rolesData) {
+        const rolesByUserId = new Map<string, any[]>();
+
+        rolesData.forEach((roleRow: any) => {
+          const list = rolesByUserId.get(roleRow.user_id) || [];
+          list.push({ role: roleRow.role });
+          rolesByUserId.set(roleRow.user_id, list);
+        });
+
+        const usersWithRoles = profilesData.map((profile: any) => ({
+          ...profile,
+          user_roles: rolesByUserId.get(profile.id) || [],
+        }));
+
+        setUsers(usersWithRoles);
+      }
+
       if (prodData) setProducts(prodData);
     } catch (error: any) {
       console.error("Erro ao buscar dados:", error);
