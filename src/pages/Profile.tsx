@@ -52,11 +52,35 @@ const Profile = () => {
         .from('profiles')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       if (profileError) throw profileError;
 
-      if (profile) {
+      // Se não existe perfil, criar um
+      if (!profile) {
+        const { data: newProfile, error: createError } = await supabase
+          .from('profiles')
+          .insert({
+            id: user.id,
+            nome: user.email?.split('@')[0] || 'Usuário',
+            email: user.email || '',
+          })
+          .select()
+          .single();
+
+        if (createError) throw createError;
+
+        if (newProfile) {
+          setProfileData({
+            nome: newProfile.nome || '',
+            email: newProfile.email || user.email || '',
+            telefone: newProfile.telefone || '',
+            cidade: newProfile.cidade || '',
+            estado: newProfile.estado || '',
+            pais: newProfile.pais || 'Brasil',
+          });
+        }
+      } else {
         setProfileData({
           nome: profile.nome || '',
           email: profile.email || user.email || '',
@@ -97,14 +121,15 @@ const Profile = () => {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({
+        .upsert({
+          id: user.id,
           nome: profileData.nome,
+          email: profileData.email,
           telefone: profileData.telefone,
           cidade: profileData.cidade,
           estado: profileData.estado,
           pais: profileData.pais,
-        })
-        .eq('id', user.id);
+        });
 
       if (error) throw error;
 
