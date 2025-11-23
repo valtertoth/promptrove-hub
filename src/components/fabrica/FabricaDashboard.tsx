@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import FabricaProfile from "./FabricaProfile";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -98,6 +99,8 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const [fabricaData, setFabricaData] = useState<any>(null);
+  const [showProfileForm, setShowProfileForm] = useState(false);
 
   // Dados
   const [allMaterials, setAllMaterials] = useState<MaterialData[]>([]);
@@ -126,10 +129,25 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
   });
 
   useEffect(() => {
+    checkProfile();
     fetchMaterials();
     fetchMyProducts();
     fetchConnections();
   }, []);
+
+  const checkProfile = async () => {
+    const { data } = await supabase
+      .from('fabrica')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+    
+    if (!data) {
+      setShowProfileForm(true);
+    } else {
+      setFabricaData(data);
+    }
+  };
 
   // --- FETCHERS ---
   const fetchMaterials = async () => {
@@ -336,6 +354,23 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
       setLoading(false);
     }
   };
+
+  if (showProfileForm) {
+    return (
+      <div className="min-h-screen bg-background p-6 md:p-12 font-sans text-foreground">
+        <div className="max-w-4xl mx-auto">
+          <FabricaProfile 
+            userId={userId} 
+            fabricaData={fabricaData}
+            onComplete={() => {
+              setShowProfileForm(false);
+              checkProfile();
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-6 md:p-10 font-sans text-foreground transition-colors duration-500">
