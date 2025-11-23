@@ -34,13 +34,17 @@ const Auth = () => {
         const { error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/dashboard`,
+          },
         });
         if (error) throw error;
         toast({
-          title: "Verifique seu email",
-          description: "Enviamos um link de confirmação para você.",
+          title: "Conta criada!",
+          description: "Agora escolha seu perfil no próximo passo.",
           className: "bg-[#103927] text-white border-none",
         });
+        navigate("/dashboard");
       } else {
         // LOGIN
         const { error } = await supabase.auth.signInWithPassword({
