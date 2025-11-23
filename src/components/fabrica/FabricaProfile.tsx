@@ -31,14 +31,14 @@ const FabricaProfile = ({ userId, fabricaData, onComplete }: FabricaProfileProps
   const [uploading, setUploading] = useState(false);
 
   const [formData, setFormData] = useState({
-    nome_fantasia: "",
-    razao_social: "",
-    cnpj: "",
-    endereco: "",
+    nome: "",
+    descricao: "",
+    cidade: "",
+    estado: "",
+    pais: "Brasil",
     telefone: "",
     site: "",
     instagram: "",
-    sobre: "",
     banner_url: "",
     logo_url: "",
     production_time: "",
@@ -50,14 +50,14 @@ const FabricaProfile = ({ userId, fabricaData, onComplete }: FabricaProfileProps
   useEffect(() => {
     if (fabricaData) {
       setFormData({
-        nome_fantasia: fabricaData.nome_fantasia || "",
-        razao_social: fabricaData.razao_social || "",
-        cnpj: fabricaData.cnpj || "",
-        endereco: fabricaData.endereco || "",
+        nome: fabricaData.nome || "",
+        descricao: fabricaData.descricao || "",
+        cidade: fabricaData.cidade || "",
+        estado: fabricaData.estado || "",
+        pais: fabricaData.pais || "Brasil",
         telefone: fabricaData.telefone || "",
         site: fabricaData.site || "",
-        instagram: fabricaData.instagram || "",
-        sobre: fabricaData.sobre || "",
+        instagram: fabricaData.redes_sociais?.instagram || "",
         banner_url: fabricaData.banner_url || "",
         logo_url: fabricaData.logo_url || "",
         production_time: fabricaData.production_time || "",
@@ -95,11 +95,25 @@ const FabricaProfile = ({ userId, fabricaData, onComplete }: FabricaProfileProps
   const handleSave = async () => {
     setLoading(true);
     try {
+      // Buscar email do usuário
+      const { data: { user } } = await supabase.auth.getUser();
+      
       const { error } = await supabase.from("fabrica").upsert({
         user_id: userId,
-        nome: formData.nome_fantasia,
-        email: formData.nome_fantasia + "@temp.com",
-        ...formData,
+        nome: formData.nome,
+        email: user?.email || "",
+        descricao: formData.descricao,
+        cidade: formData.cidade,
+        estado: formData.estado,
+        pais: formData.pais,
+        telefone: formData.telefone,
+        site: formData.site,
+        redes_sociais: { instagram: formData.instagram },
+        banner_url: formData.banner_url,
+        logo_url: formData.logo_url,
+        production_time: formData.production_time,
+        minimum_order: formData.minimum_order,
+        regions: formData.regions,
       });
 
       if (error) throw error;
@@ -157,7 +171,7 @@ const FabricaProfile = ({ userId, fabricaData, onComplete }: FabricaProfileProps
             <Avatar className="w-24 h-24 border-4 border-white shadow-lg bg-white">
               <AvatarImage src={formData.logo_url} className="object-cover" />
               <AvatarFallback className="bg-[#103927] text-white text-xl font-serif">
-                {formData.nome_fantasia?.substring(0, 2).toUpperCase() || "FB"}
+                {formData.nome?.substring(0, 2).toUpperCase() || "FB"}
               </AvatarFallback>
             </Avatar>
             <label
@@ -184,32 +198,16 @@ const FabricaProfile = ({ userId, fabricaData, onComplete }: FabricaProfileProps
 
       {/* FORMULÁRIO EM GRID */}
       <div className="grid gap-6 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label>Nome Fantasia</Label>
+        <div className="space-y-2 md:col-span-2">
+          <Label>Nome da Empresa</Label>
           <Input
-            value={formData.nome_fantasia}
-            onChange={(e) => setFormData({ ...formData, nome_fantasia: e.target.value })}
+            value={formData.nome}
+            onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
             className="h-12 rounded-xl bg-gray-50 border-transparent focus:bg-white transition-all"
             placeholder="Ex: Toth Móveis"
           />
         </div>
-        <div className="space-y-2">
-          <Label>Razão Social</Label>
-          <Input
-            value={formData.razao_social}
-            onChange={(e) => setFormData({ ...formData, razao_social: e.target.value })}
-            className="h-12 rounded-xl bg-gray-50 border-transparent focus:bg-white"
-          />
-        </div>
 
-        <div className="space-y-2">
-          <Label>CNPJ</Label>
-          <Input
-            value={formData.cnpj}
-            onChange={(e) => setFormData({ ...formData, cnpj: e.target.value })}
-            className="h-12 rounded-xl bg-gray-50 border-transparent"
-          />
-        </div>
         <div className="space-y-2">
           <Label>Telefone / WhatsApp</Label>
           <Input
@@ -219,17 +217,33 @@ const FabricaProfile = ({ userId, fabricaData, onComplete }: FabricaProfileProps
           />
         </div>
 
-        <div className="space-y-2 md:col-span-2">
-          <Label>Endereço Completo</Label>
-          <div className="relative">
-            <MapPin className="absolute left-3 top-3.5 h-5 w-5 text-gray-400" />
-            <Input
-              value={formData.endereco}
-              onChange={(e) => setFormData({ ...formData, endereco: e.target.value })}
-              className="h-12 pl-10 rounded-xl bg-gray-50 border-transparent"
-              placeholder="Rua, Número, Bairro, Cidade - UF"
-            />
-          </div>
+        <div className="space-y-2">
+          <Label>País</Label>
+          <Input
+            value={formData.pais}
+            onChange={(e) => setFormData({ ...formData, pais: e.target.value })}
+            className="h-12 rounded-xl bg-gray-50 border-transparent"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Estado</Label>
+          <Input
+            value={formData.estado}
+            onChange={(e) => setFormData({ ...formData, estado: e.target.value })}
+            className="h-12 rounded-xl bg-gray-50 border-transparent"
+            placeholder="Ex: São Paulo"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Cidade</Label>
+          <Input
+            value={formData.cidade}
+            onChange={(e) => setFormData({ ...formData, cidade: e.target.value })}
+            className="h-12 rounded-xl bg-gray-50 border-transparent"
+            placeholder="Ex: Presidente Prudente"
+          />
         </div>
 
         <div className="space-y-2">
@@ -260,8 +274,8 @@ const FabricaProfile = ({ userId, fabricaData, onComplete }: FabricaProfileProps
         <div className="space-y-2 md:col-span-2">
           <Label>Sobre a Marca</Label>
           <Textarea
-            value={formData.sobre}
-            onChange={(e) => setFormData({ ...formData, sobre: e.target.value })}
+            value={formData.descricao}
+            onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
             className="min-h-[100px] rounded-xl bg-gray-50 border-transparent p-4 leading-relaxed"
             placeholder="Conte sua história, seus diferenciais e sua filosofia de design..."
           />

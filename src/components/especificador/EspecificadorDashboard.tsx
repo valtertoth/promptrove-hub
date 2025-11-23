@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import EspecificadorProfile from "./EspecificadorProfile";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -64,8 +63,6 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [especificadorData, setEspecificadorData] = useState<any>(null);
-  const [showProfileForm, setShowProfileForm] = useState(false);
 
   const [isApplicationOpen, setIsApplicationOpen] = useState(false);
   const [selectedFactoryId, setSelectedFactoryId] = useState<string | null>(null);
@@ -84,23 +81,8 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
   });
 
   useEffect(() => {
-    checkProfile();
     fetchData();
   }, [userId]);
-
-  const checkProfile = async () => {
-    const { data } = await supabase
-      .from('especificador')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
-    
-    if (!data) {
-      setShowProfileForm(true);
-    } else {
-      setEspecificadorData(data);
-    }
-  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -193,23 +175,6 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
       p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (p.manufacturer_name || "").toLowerCase().includes(searchQuery.toLowerCase()),
   );
-
-  if (showProfileForm) {
-    return (
-      <div className="min-h-screen bg-background p-6 md:p-12 font-sans text-foreground">
-        <div className="max-w-2xl mx-auto">
-          <EspecificadorProfile 
-            userId={userId} 
-            especificadorData={especificadorData}
-            onComplete={() => {
-              setShowProfileForm(false);
-              checkProfile();
-            }}
-          />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background p-6 md:p-12 font-sans text-foreground">
