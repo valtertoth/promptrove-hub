@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Loader2,
   Upload,
@@ -77,7 +76,7 @@ const FabricaProfile = ({ userId, fabricaData, onComplete }: FabricaProfileProps
       const fileExt = file.name.split(".").pop();
       const fileName = `${userId}-${field}-${Math.random()}.${fileExt}`;
 
-      // Usa o bucket de imagens (certifique-se que ele existe ou use 'public')
+      // Usa o bucket de imagens
       const { error: uploadError } = await supabase.storage.from("material-images").upload(fileName, file);
 
       if (uploadError) throw uploadError;
@@ -96,10 +95,11 @@ const FabricaProfile = ({ userId, fabricaData, onComplete }: FabricaProfileProps
   const handleSave = async () => {
     setLoading(true);
     try {
+      // CORREÇÃO AQUI: Mudamos 'user_id' para 'id' e adicionamos 'as any'
       const { error } = await supabase.from("fabrica").upsert({
-        user_id: userId,
+        id: userId, // O banco usa 'id' como chave primária
         ...formData,
-      });
+      } as any);
 
       if (error) throw error;
 
