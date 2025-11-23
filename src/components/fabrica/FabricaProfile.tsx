@@ -95,11 +95,12 @@ const FabricaProfile = ({ userId, fabricaData, onComplete }: FabricaProfileProps
   const handleSave = async () => {
     setLoading(true);
     try {
-      // CORREÇÃO DE CHAVE (usando id) e CAST (as any)
       const { error } = await supabase.from("fabrica").upsert({
-        id: userId,
+        user_id: userId,
+        nome: formData.nome_fantasia,
+        email: formData.nome_fantasia + "@temp.com",
         ...formData,
-      } as any);
+      });
 
       if (error) throw error;
 
