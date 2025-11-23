@@ -153,6 +153,10 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
           <h1 className="text-4xl font-serif font-medium text-foreground">Acervo de Materiais</h1>
         </div>
         <div className="flex gap-4">
+          <Button onClick={() => window.location.href = '/profile'} variant="outline" className="rounded-xl">
+            <Settings className="mr-2 h-4 w-4" />
+            Meu Perfil
+          </Button>
           <Button onClick={signOut} variant="ghost" className="text-destructive hover:bg-destructive/10 rounded-xl">
             Sair
           </Button>

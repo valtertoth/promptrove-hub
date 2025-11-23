@@ -347,6 +347,10 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
           <p className="text-muted-foreground mt-2 font-light">Gestão de acervo e curadoria de materiais.</p>
         </div>
         <div className="flex gap-3">
+          <Button onClick={() => window.location.href = '/profile'} variant="outline" className="rounded-xl">
+            <Settings className="mr-2 h-4 w-4" />
+            Meu Perfil
+          </Button>
           <Button onClick={signOut} variant="ghost" className="text-destructive hover:bg-destructive/10 rounded-xl">
             Sair
           </Button>

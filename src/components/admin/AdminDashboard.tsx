@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Users, Package, Search, Trash2, LogOut, ShieldAlert, Plus, Loader2, Pencil } from "lucide-react";
+import { Users, Package, Search, Trash2, LogOut, ShieldAlert, Plus, Loader2, Pencil, Settings } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -199,6 +199,10 @@ const AdminDashboard = () => {
           <p className="text-muted-foreground mt-1">Controle total do ecossistema (Dev Mode).</p>
         </div>
         <div className="flex gap-3">
+          <Button onClick={() => window.location.href = '/profile'} variant="outline" className="rounded-xl">
+            <Settings className="mr-2 h-4 w-4" />
+            Meu Perfil
+          </Button>
           <Button onClick={signOut} variant="ghost" className="text-destructive hover:bg-destructive/10 rounded-xl">
             <LogOut className="mr-2 h-4 w-4" /> Sair
           </Button>

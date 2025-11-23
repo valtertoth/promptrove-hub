@@ -186,7 +186,8 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
           <h1 className="text-4xl font-serif font-medium text-foreground">Curadoria de Projetos</h1>
         </div>
         <div className="flex gap-4">
-          <Button variant="outline" className="rounded-full border-border hover:bg-secondary/50">
+          <Button onClick={() => window.location.href = '/profile'} variant="outline" className="rounded-full border-border hover:bg-secondary/50">
+            <Settings className="mr-2 h-4 w-4" />
             Meu Perfil
           </Button>
           <Button onClick={signOut} variant="ghost" className="text-destructive hover:bg-destructive/10 rounded-full">
