@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import FornecedorProfile from "./FornecedorProfile";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -67,8 +66,6 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
   const [activeTab, setActiveTab] = useState("catalog");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [fornecedorData, setFornecedorData] = useState<any>(null);
-  const [showProfileForm, setShowProfileForm] = useState(false);
   const [newMaterial, setNewMaterial] = useState({
     name: "",
     type: "",
@@ -78,23 +75,8 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
   });
 
   useEffect(() => {
-    checkProfile();
     fetchMaterials();
-  }, [userId]);
-
-  const checkProfile = async () => {
-    const { data } = await supabase
-      .from('fornecedor')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
-    
-    if (!data) {
-      setShowProfileForm(true);
-    } else {
-      setFornecedorData(data);
-    }
-  };
+  }, []);
 
   const fetchMaterials = async () => {
     const { data } = await supabase
@@ -160,23 +142,6 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
     setActiveTab("new-material");
   };
   const filteredMaterials = materials.filter((m) => m.name.toLowerCase().includes(searchTerm.toLowerCase()));
-
-  if (showProfileForm) {
-    return (
-      <div className="min-h-screen bg-background p-6 md:p-12 font-sans text-foreground">
-        <div className="max-w-2xl mx-auto">
-          <FornecedorProfile 
-            userId={userId} 
-            fornecedorData={fornecedorData}
-            onComplete={() => {
-              setShowProfileForm(false);
-              checkProfile();
-            }}
-          />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background p-6 md:p-12 font-sans text-foreground">
