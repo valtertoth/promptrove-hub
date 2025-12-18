@@ -43,7 +43,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-[#FAFAF9] text-[#1C1917] overflow-x-hidden font-sans selection:bg-[#103927] selection:text-white">
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-8 py-6 mix-blend-difference text-white">
-        <div className="text-2xl font-serif font-bold tracking-tighter">Specify.</div>
+        <div className="text-2xl font-serif font-bold tracking-tighter">Specifica.</div>
         <div className="flex gap-6 text-sm font-medium tracking-wide">
           {/* BOTÃO INTELIGENTE NA NAVBAR */}
           <button onClick={handleAction} className="hover:underline underline-offset-4 transition-all">
@@ -193,7 +193,7 @@ const Index = () => {
               Tecnologia invisível para <br /> <span className="text-[#D4AF37] italic">controle total.</span>
             </h3>
             <p className="text-lg opacity-80 font-light leading-relaxed">
-              O Specify é um organismo vivo onde cada alteração na matéria-prima reflete instantaneamente no produto
+              O Specifica é um organismo vivo onde cada alteração na matéria-prima reflete instantaneamente no produto
               final.
             </p>
             <ul className="space-y-4 mt-8">
@@ -254,7 +254,7 @@ const Index = () => {
       {/* FOOTER */}
       <footer className="bg-[#0A261A] text-[#FAFAF9]/60 py-12 px-6 border-t border-white/10">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="text-2xl font-serif font-bold text-white tracking-tighter">Specify.</div>
+          <div className="text-2xl font-serif font-bold text-white tracking-tighter">Specifica.</div>
           <div className="text-sm flex gap-8">
             <a href="#" className="hover:text-white transition-colors">
               Manifesto
@@ -269,7 +269,7 @@ const Index = () => {
               Para Fornecedores
             </a>
           </div>
-          <div className="text-xs">© 2025 Specify Ecosystem. All rights reserved.</div>
+          <div className="text-xs">© 2025 Specifica. Todos os direitos reservados.</div>
         </div>
       </footer>
     </div>
