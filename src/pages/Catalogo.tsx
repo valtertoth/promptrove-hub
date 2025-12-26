@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Search, Filter, MapPin, Package } from 'lucide-react';
+import { Search, Filter, MapPin, Package, ClipboardCheck } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import EspecificarDialog from '@/components/especificador/EspecificarDialog';
 
 const Catalogo = () => {
+  const { user } = useAuth();
   const [produtos, setProdutos] = useState<any[]>([]);
   const [fabricas, setFabricas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,9 +24,31 @@ const Catalogo = () => {
   const [tipos, setTipos] = useState<string[]>([]);
   const [regioes, setRegioes] = useState<string[]>([]);
 
+  // Estado para o dialog de especificar
+  const [especificarOpen, setEspecificarOpen] = useState(false);
+  const [produtoSelecionado, setProdutoSelecionado] = useState<{ id: string; nome: string } | null>(null);
+
+  // Verificar se o usuário é especificador
+  const [isEspecificador, setIsEspecificador] = useState(false);
+
   useEffect(() => {
     fetchData();
-  }, []);
+    if (user) {
+      checkIfEspecificador();
+    }
+  }, [user]);
+
+  const checkIfEspecificador = async () => {
+    if (!user) return;
+
+    const { data } = await supabase
+      .from('especificador')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    setIsEspecificador(!!data);
+  };
 
   useEffect(() => {
     filterProdutos();
@@ -130,6 +155,11 @@ const Catalogo = () => {
     setSelectedTipo('');
     setSelectedRegiao('');
     setSelectedFabrica('');
+  };
+
+  const handleEspecificar = (produto: any) => {
+    setProdutoSelecionado({ id: produto.id, nome: produto.nome });
+    setEspecificarOpen(true);
   };
 
   const filteredProdutos = filterProdutos();
@@ -255,7 +285,7 @@ const Catalogo = () => {
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredProdutos.map((produto) => (
-              <Card key={produto.id} className="overflow-hidden hover:shadow-elegant transition-all group cursor-pointer">
+              <Card key={produto.id} className="overflow-hidden hover:shadow-elegant transition-all group">
                 {produto.imagens && produto.imagens.length > 0 ? (
                   <div className="relative h-56 overflow-hidden">
                     <img
@@ -304,7 +334,19 @@ const Catalogo = () => {
                     </div>
                   )}
 
-                  <div className="border-t pt-4 mt-4">
+                  {/* Botão Especificar */}
+                  {isEspecificador && (
+                    <Button
+                      onClick={() => handleEspecificar(produto)}
+                      className="w-full mb-4"
+                      variant="default"
+                    >
+                      <ClipboardCheck className="mr-2 h-4 w-4" />
+                      Especificar
+                    </Button>
+                  )}
+
+                  <div className="border-t pt-4">
                     <div className="flex items-center gap-3">
                       {produto.fabrica?.logo_url ? (
                         <img
@@ -336,6 +378,13 @@ const Catalogo = () => {
           </div>
         )}
       </main>
+
+      {/* Dialog de Especificar */}
+      <EspecificarDialog
+        open={especificarOpen}
+        onOpenChange={setEspecificarOpen}
+        produto={produtoSelecionado}
+      />
     </div>
   );
 };
