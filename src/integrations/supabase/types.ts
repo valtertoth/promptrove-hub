@@ -468,6 +468,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fk_itens_projeto_produto"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "itens_projeto_produto_id_fkey"
             columns: ["produto_id"]
             isOneToOne: false
@@ -855,7 +862,22 @@ export type Database = {
           nome_projeto?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_projetos_especificador"
+            columns: ["especificador_id"]
+            isOneToOne: false
+            referencedRelation: "especificador"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_projetos_especificador"
+            columns: ["especificador_id"]
+            isOneToOne: false
+            referencedRelation: "especificadores_publicos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sugestoes_campo_produto: {
         Row: {
