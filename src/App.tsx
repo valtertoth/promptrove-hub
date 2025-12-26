@@ -8,6 +8,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Catalogo from "./pages/Catalogo";
+import MeusProjetos from "./pages/MeusProjetos";
 import Dev from "./pages/Dev";
 import NotFound from "./pages/NotFound";
 import AdminDashboard from "./components/admin/AdminDashboard";
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/catalogo" element={<Catalogo />} />
+          <Route path="/meus-projetos" element={<MeusProjetos />} />
 
           {/* ROTA DO MODO DEUS (Corrigida: Sem userId) */}
           <Route path="/admin" element={<AdminDashboard />} />

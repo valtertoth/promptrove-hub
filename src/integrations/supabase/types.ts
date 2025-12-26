@@ -438,6 +438,51 @@ export type Database = {
         }
         Relationships: []
       }
+      itens_projeto: {
+        Row: {
+          ambiente: string | null
+          created_at: string
+          id: string
+          observacoes: string | null
+          produto_id: string
+          projeto_id: string
+          quantidade: number
+        }
+        Insert: {
+          ambiente?: string | null
+          created_at?: string
+          id?: string
+          observacoes?: string | null
+          produto_id: string
+          projeto_id: string
+          quantidade?: number
+        }
+        Update: {
+          ambiente?: string | null
+          created_at?: string
+          id?: string
+          observacoes?: string | null
+          produto_id?: string
+          projeto_id?: string
+          quantidade?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "itens_projeto_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "itens_projeto_projeto_id_fkey"
+            columns: ["projeto_id"]
+            isOneToOne: false
+            referencedRelation: "projetos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       materials: {
         Row: {
           created_at: string
@@ -782,6 +827,33 @@ export type Database = {
           pais?: string | null
           telefone?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      projetos: {
+        Row: {
+          cliente: string | null
+          created_at: string
+          especificador_id: string
+          id: string
+          nome_projeto: string
+          updated_at: string
+        }
+        Insert: {
+          cliente?: string | null
+          created_at?: string
+          especificador_id: string
+          id?: string
+          nome_projeto: string
+          updated_at?: string
+        }
+        Update: {
+          cliente?: string | null
+          created_at?: string
+          especificador_id?: string
+          id?: string
+          nome_projeto?: string
+          updated_at?: string
         }
         Relationships: []
       }

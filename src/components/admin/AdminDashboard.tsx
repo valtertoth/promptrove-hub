@@ -9,10 +9,29 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Users, Package, Search, Trash2, LogOut, ShieldAlert, Plus, Loader2, Pencil, Settings } from "lucide-react";
+import { Users, Package, Search, Trash2, LogOut, ShieldAlert, Plus, Loader2, Pencil, Settings, Factory, Truck, UserCheck } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+
+interface UserData {
+  id: string;
+  nome: string;
+  email: string;
+  tipo: string;
+  created_at: string;
+  role?: string;
+  tabela: 'fabrica' | 'fornecedor' | 'especificador';
+  user_id: string;
+}
+
+interface ProdutoData {
+  id: string;
+  nome: string;
+  fabrica_id: string;
+  fabrica_nome?: string;
+  created_at: string;
+}
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -22,8 +41,8 @@ const AdminDashboard = () => {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
   // Dados
-  const [users, setUsers] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
+  const [users, setUsers] = useState<UserData[]>([]);
+  const [produtos, setProdutos] = useState<ProdutoData[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
 
   // Criar Usuário Manualmente
@@ -74,39 +93,96 @@ const AdminDashboard = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Buscar perfis e roles em chamadas separadas (não depende de relacionamento configurado no banco)
-      const [profilesResult, rolesResult, productsResult] = await Promise.all([
-        supabase.from("profiles").select("*").order("created_at", { ascending: false }),
+      // Buscar de todas as tabelas específicas
+      const [fabricasResult, fornecedoresResult, especificadoresResult, produtosResult, rolesResult] = await Promise.all([
+        supabase.from("fabrica").select("id, user_id, nome, email, created_at"),
+        supabase.from("fornecedor").select("id, user_id, nome, created_at"),
+        supabase.from("especificador").select("id, user_id, nome, email, tipo, created_at"),
+        supabase.from("produtos").select(`
+          id, 
+          nome, 
+          fabrica_id, 
+          created_at,
+          fabrica:fabrica_id (nome)
+        `).order("created_at", { ascending: false }),
         supabase.from("user_roles").select("user_id, role"),
-        supabase.from("products").select("*").order("created_at", { ascending: false }),
       ]);
 
-      const { data: profilesData, error: profilesError } = profilesResult;
+      const { data: fabricasData, error: fabricasError } = fabricasResult;
+      const { data: fornecedoresData, error: fornecedoresError } = fornecedoresResult;
+      const { data: especificadoresData, error: especificadoresError } = especificadoresResult;
+      const { data: produtosData, error: produtosError } = produtosResult;
       const { data: rolesData, error: rolesError } = rolesResult;
-      const { data: prodData, error: prodError } = productsResult;
 
-      if (profilesError) throw profilesError;
-      if (rolesError) throw rolesError;
-      if (prodError) throw prodError;
+      if (fabricasError) console.error("Erro fábricas:", fabricasError);
+      if (fornecedoresError) console.error("Erro fornecedores:", fornecedoresError);
+      if (especificadoresError) console.error("Erro especificadores:", especificadoresError);
+      if (produtosError) console.error("Erro produtos:", produtosError);
+      if (rolesError) console.error("Erro roles:", rolesError);
 
-      if (profilesData && rolesData) {
-        const rolesByUserId = new Map<string, any[]>();
+      // Criar mapa de roles
+      const rolesByUserId = new Map<string, string>();
+      rolesData?.forEach((r: any) => {
+        rolesByUserId.set(r.user_id, r.role);
+      });
 
-        rolesData.forEach((roleRow: any) => {
-          const list = rolesByUserId.get(roleRow.user_id) || [];
-          list.push({ role: roleRow.role });
-          rolesByUserId.set(roleRow.user_id, list);
+      // Combinar usuários de todas as tabelas
+      const allUsers: UserData[] = [];
+
+      fabricasData?.forEach((f: any) => {
+        allUsers.push({
+          id: f.id,
+          user_id: f.user_id,
+          nome: f.nome,
+          email: f.email || '---',
+          tipo: 'Fábrica',
+          created_at: f.created_at,
+          role: rolesByUserId.get(f.user_id) || 'fabrica',
+          tabela: 'fabrica',
         });
+      });
 
-        const usersWithRoles = profilesData.map((profile: any) => ({
-          ...profile,
-          user_roles: rolesByUserId.get(profile.id) || [],
-        }));
+      fornecedoresData?.forEach((f: any) => {
+        allUsers.push({
+          id: f.id,
+          user_id: f.user_id,
+          nome: f.nome,
+          email: '---',
+          tipo: 'Fornecedor',
+          created_at: f.created_at,
+          role: rolesByUserId.get(f.user_id) || 'fornecedor',
+          tabela: 'fornecedor',
+        });
+      });
 
-        setUsers(usersWithRoles);
-      }
+      especificadoresData?.forEach((e: any) => {
+        allUsers.push({
+          id: e.id,
+          user_id: e.user_id,
+          nome: e.nome,
+          email: e.email || '---',
+          tipo: `Especificador (${e.tipo || '---'})`,
+          created_at: e.created_at,
+          role: rolesByUserId.get(e.user_id) || 'especificador',
+          tabela: 'especificador',
+        });
+      });
 
-      if (prodData) setProducts(prodData);
+      // Ordenar por data de criação
+      allUsers.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      setUsers(allUsers);
+
+      // Processar produtos
+      const processedProdutos: ProdutoData[] = (produtosData || []).map((p: any) => ({
+        id: p.id,
+        nome: p.nome,
+        fabrica_id: p.fabrica_id,
+        fabrica_nome: p.fabrica?.nome || 'Fábrica não encontrada',
+        created_at: p.created_at,
+      }));
+
+      setProdutos(processedProdutos);
     } catch (error: any) {
       console.error("Erro ao buscar dados:", error);
     } finally {
@@ -116,10 +192,10 @@ const AdminDashboard = () => {
 
   // --- AÇÕES DE ADMIN ---
 
-  const handleDeleteUser = async (id: string) => {
-    if (!confirm("ATENÇÃO: Isso apagará o usuário. Continuar?")) return;
+  const handleDeleteUser = async (userData: UserData) => {
+    if (!confirm(`ATENÇÃO: Isso apagará o ${userData.tipo} "${userData.nome}". Continuar?`)) return;
 
-    const { error } = await supabase.from("profiles").delete().eq("id", id);
+    const { error } = await supabase.from(userData.tabela).delete().eq("id", userData.id);
 
     if (error) {
       toast({ title: "Erro", description: "Erro ao excluir: " + error.message, variant: "destructive" });
@@ -132,14 +208,18 @@ const AdminDashboard = () => {
   const handleDeleteProduct = async (id: string) => {
     if (!confirm("Excluir este produto permanentemente?")) return;
 
-    await supabase.from("product_materials").delete().eq("product_id", id);
-    const { error } = await supabase.from("products").delete().eq("id", id);
+    // Deletar personalizações e variações primeiro
+    await supabase.from("personalizacoes_produto").delete().eq("produto_id", id);
+    await supabase.from("variacoes_produto").delete().eq("produto_id", id);
+    await supabase.from("produto_fornecedor").delete().eq("produto_id", id);
+    
+    const { error } = await supabase.from("produtos").delete().eq("id", id);
 
     if (!error) {
       toast({ title: "Produto Excluído", className: "bg-indigo-600 text-white" });
       fetchData();
     } else {
-      toast({ title: "Erro", description: "Erro ao excluir produto.", variant: "destructive" });
+      toast({ title: "Erro", description: "Erro ao excluir produto: " + error.message, variant: "destructive" });
     }
   };
 
@@ -192,7 +272,7 @@ const AdminDashboard = () => {
       const { error } = await supabase
         .from("user_roles")
         .update({ role: editingUser.newRole })
-        .eq("user_id", editingUser.id);
+        .eq("user_id", editingUser.user_id);
 
       if (error) throw error;
 
@@ -207,21 +287,26 @@ const AdminDashboard = () => {
     }
   };
 
-  const openEditRole = (user: any) => {
-    const currentRole = getUserRole(user);
-    setEditingUser({ ...user, newRole: currentRole });
+  const openEditRole = (userData: UserData) => {
+    setEditingUser({ ...userData, newRole: userData.role });
     setIsEditRoleOpen(true);
   };
 
-  // Função helper corrigida para lidar com possíveis estruturas diferentes de user_roles
-  const getUserRole = (user: any) => {
-    if (user.user_roles && Array.isArray(user.user_roles) && user.user_roles.length > 0) {
-      return user.user_roles[0].role;
-    } else if (user.role) {
-      // Fallback para caso a role esteja diretamente no objeto user (dependendo de como o Supabase retorna)
-      return user.role;
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case 'fabrica': return 'bg-black';
+      case 'fornecedor': return 'bg-blue-600';
+      case 'especificador': return 'bg-emerald-600';
+      case 'admin': return 'bg-indigo-600';
+      default: return 'bg-gray-500';
     }
-    return "sem-perfil";
+  };
+
+  const getTipoIcon = (tipo: string) => {
+    if (tipo.includes('Fábrica')) return <Factory className="h-4 w-4" />;
+    if (tipo.includes('Fornecedor')) return <Truck className="h-4 w-4" />;
+    if (tipo.includes('Especificador')) return <UserCheck className="h-4 w-4" />;
+    return <Users className="h-4 w-4" />;
   };
 
   if (authLoading || isAdmin === null) {
@@ -253,6 +338,12 @@ const AdminDashboard = () => {
     );
   }
 
+  const filteredUsers = users.filter((u) => 
+    (u.nome || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (u.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (u.tipo || "").toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="min-h-screen bg-background p-6 md:p-10 font-sans text-foreground transition-colors duration-500">
       <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -261,7 +352,7 @@ const AdminDashboard = () => {
             <ShieldAlert className="h-8 w-8 text-indigo-600" />
             Painel <span className="italic text-indigo-600">Master</span>
           </h1>
-          <p className="text-muted-foreground mt-1">Controle total do ecossistema (Dev Mode).</p>
+          <p className="text-muted-foreground mt-1">Controle total do ecossistema.</p>
         </div>
         <div className="flex gap-3">
           <Button onClick={() => window.location.href = '/profile'} variant="outline" className="rounded-xl">
@@ -275,10 +366,12 @@ const AdminDashboard = () => {
       </header>
 
       {/* KPIS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <Card className="rounded-2xl border-none shadow-md bg-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Usuários Cadastrados</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
+              <Users className="h-4 w-4" /> Total de Usuários
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-4xl font-bold text-indigo-600">{users.length}</div>
@@ -286,10 +379,36 @@ const AdminDashboard = () => {
         </Card>
         <Card className="rounded-2xl border-none shadow-md bg-white">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Produtos Totais</CardTitle>
+            <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
+              <Factory className="h-4 w-4" /> Fábricas
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-4xl font-bold text-foreground">{products.length}</div>
+            <div className="text-4xl font-bold text-foreground">
+              {users.filter(u => u.tabela === 'fabrica').length}
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl border-none shadow-md bg-white">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
+              <UserCheck className="h-4 w-4" /> Especificadores
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-bold text-emerald-600">
+              {users.filter(u => u.tabela === 'especificador').length}
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl border-none shadow-md bg-white">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground flex items-center gap-2">
+              <Package className="h-4 w-4" /> Produtos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-4xl font-bold text-foreground">{produtos.length}</div>
           </CardContent>
         </Card>
       </div>
@@ -306,7 +425,7 @@ const AdminDashboard = () => {
             value="products"
             className="rounded-full px-6 data-[state=active]:bg-indigo-600 data-[state=active]:text-white"
           >
-            <Package className="mr-2 h-4 w-4" /> Produtos do Sistema
+            <Package className="mr-2 h-4 w-4" /> Produtos
           </TabsTrigger>
         </TabsList>
 
@@ -316,7 +435,7 @@ const AdminDashboard = () => {
             <div className="relative w-96">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar nome ou função..."
+                placeholder="Buscar nome, email ou tipo..."
                 className="pl-10 rounded-xl bg-white border-transparent shadow-sm"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -424,85 +543,88 @@ const AdminDashboard = () => {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>Função</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Role</TableHead>
                   <TableHead>Cadastro</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users
-                  .filter((u) => (u.nome || "").toLowerCase().includes(searchTerm.toLowerCase()))
-                  .map((user) => {
-                    const role = getUserRole(user);
-                    return (
-                      <TableRow key={user.id}>
-                        <TableCell className="font-medium font-serif">{user.nome || "---"}</TableCell>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell>
-                          <Badge
-                            className={`
-                                            ${role === "fabricante" ? "bg-black" : ""}
-                                            ${role === "fornecedor" ? "bg-blue-600" : ""}
-                                            ${role === "especificador" ? "bg-emerald-600" : ""}
-                                            ${role === "admin" ? "bg-indigo-600" : ""}
-                                        `}
+                {filteredUsers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                      Nenhum usuário encontrado.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredUsers.map((userData) => (
+                    <TableRow key={`${userData.tabela}-${userData.id}`}>
+                      <TableCell className="font-medium font-serif">{userData.nome || "---"}</TableCell>
+                      <TableCell>{userData.email}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {getTipoIcon(userData.tipo)}
+                          <span>{userData.tipo}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getRoleBadgeColor(userData.role || '')}>
+                          {(userData.role || 'sem-perfil').toUpperCase()}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{new Date(userData.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-indigo-600 hover:bg-indigo-50 rounded-lg"
+                            onClick={() => openEditRole(userData)}
                           >
-                            {role.toUpperCase()}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex gap-2 justify-end">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-indigo-600 hover:bg-indigo-50 rounded-lg"
-                              onClick={() => openEditRole(user)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-destructive hover:bg-destructive/10 rounded-lg"
-                              onClick={() => handleDeleteUser(user.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:bg-destructive/10 rounded-lg"
+                            onClick={() => handleDeleteUser(userData)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </Card>
         </TabsContent>
 
-        {/* ABA PRODUTOS DO SISTEMA */}
+        {/* ABA PRODUTOS */}
         <TabsContent value="products">
           <Card className="rounded-2xl border-none shadow-sm bg-white overflow-hidden">
             <Table>
               <TableHeader className="bg-secondary/20">
                 <TableRow>
                   <TableHead>Produto</TableHead>
-                  <TableHead>ID do Fabricante</TableHead>
+                  <TableHead>Fábrica</TableHead>
                   <TableHead>Criado em</TableHead>
                   <TableHead className="text-right">Controle</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {products.length === 0 ? (
+                {produtos.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
                       Nenhum produto cadastrado.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  products.map((prod) => (
+                  produtos.map((prod) => (
                     <TableRow key={prod.id}>
-                      <TableCell className="font-medium">{prod.name}</TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">{prod.manufacturer_id}</TableCell>
+                      <TableCell className="font-medium">{prod.nome}</TableCell>
+                      <TableCell>{prod.fabrica_nome}</TableCell>
                       <TableCell>{new Date(prod.created_at).toLocaleDateString()}</TableCell>
                       <TableCell className="text-right">
                         <Button
