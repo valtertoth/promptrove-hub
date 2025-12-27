@@ -780,6 +780,42 @@ export type Database = {
           },
         ]
       }
+      produto_materiais: {
+        Row: {
+          created_at: string
+          id: string
+          material_id: string
+          produto_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          material_id: string
+          produto_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          material_id?: string
+          produto_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "produto_materiais_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "produto_materiais_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       produtos: {
         Row: {
           ambientes: Json | null
