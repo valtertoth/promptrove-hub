@@ -40,6 +40,7 @@ interface Material {
   categoria_id: string | null;
   description: string | null;
   image_url: string | null;
+  sku_supplier: string | null;
 }
 
 interface MaterialVinculado {
@@ -173,7 +174,8 @@ const AcervoMateriais = ({ produtoId, onUpdate }: AcervoMateriaisProps) => {
             supplier_name,
             categoria_id,
             description,
-            image_url
+            image_url,
+            sku_supplier
           )
         `)
         .eq('produto_id', produtoId);
@@ -408,7 +410,14 @@ const AcervoMateriais = ({ produtoId, onUpdate }: AcervoMateriaisProps) => {
                           {/* Info do Material */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between">
-                              <p className="text-sm font-medium truncate">{material.name}</p>
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium truncate">{material.name}</p>
+                                {material.sku_supplier && (
+                                  <p className="text-xs text-muted-foreground font-mono">
+                                    SKU: {material.sku_supplier}
+                                  </p>
+                                )}
+                              </div>
                               {jaVinculado ? (
                                 <Badge variant="default" className="text-xs shrink-0 ml-2">
                                   Adicionado
@@ -508,13 +517,18 @@ const AcervoMateriais = ({ produtoId, onUpdate }: AcervoMateriaisProps) => {
                     <p className="text-sm font-medium truncate">
                       {vinculo.material?.name || 'Material não encontrado'}
                     </p>
-                    <div className="flex gap-1 items-center">
+                    <div className="flex flex-wrap gap-1 items-center">
                       <Badge variant="outline" className="text-xs">
                         {getCategoriaNome(vinculo.material?.categoria_id || null)}
                       </Badge>
                       <span className="text-xs text-muted-foreground">
                         • {vinculo.material?.supplier_name || 'Fornecedor'}
                       </span>
+                      {vinculo.material?.sku_supplier && (
+                        <span className="text-xs text-muted-foreground font-mono">
+                          • {vinculo.material.sku_supplier}
+                        </span>
+                      )}
                     </div>
                   </div>
                   
