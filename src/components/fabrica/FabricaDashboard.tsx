@@ -138,7 +138,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
     sku: "",
     description: "",
     dimensions: [""],
-    image_url: "",
+    image_urls: [] as string[],
   });
 
   useEffect(() => {
@@ -229,20 +229,41 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
   // --- ACTIONS PRODUTOS ---
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     try {
-      const file = event.target.files?.[0];
-      if (!file) return;
+      const files = event.target.files;
+      if (!files || files.length === 0) return;
+      
+      if (newProduct.image_urls.length + files.length > 10) {
+        toast({ title: "Limite de 10 fotos", description: "Remova algumas fotos antes de adicionar mais.", variant: "destructive" });
+        return;
+      }
+      
       setUploading(true);
-      const fileName = `product-${userId}-${Math.random()}.${file.name.split(".").pop()}`;
-      const { error: uploadError } = await supabase.storage.from("material-images").upload(fileName, file);
-      if (uploadError) throw uploadError;
-      const { data } = supabase.storage.from("material-images").getPublicUrl(fileName);
-      setNewProduct((prev) => ({ ...prev, image_url: data.publicUrl }));
-      toast({ title: "Foto carregada!", className: "bg-green-600 text-white border-none" });
+      const uploadedUrls: string[] = [];
+      
+      for (const file of Array.from(files)) {
+        const fileName = `product-${userId}-${Date.now()}-${Math.random().toString(36).slice(2)}.${file.name.split(".").pop()}`;
+        const { error: uploadError } = await supabase.storage.from("material-images").upload(fileName, file);
+        if (uploadError) throw uploadError;
+        const { data } = supabase.storage.from("material-images").getPublicUrl(fileName);
+        uploadedUrls.push(data.publicUrl);
+      }
+      
+      setNewProduct((prev) => ({ ...prev, image_urls: [...prev.image_urls, ...uploadedUrls] }));
+      toast({ title: `${uploadedUrls.length} foto(s) carregada(s)!`, className: "bg-green-600 text-white border-none" });
     } catch (error: any) {
-      toast({ title: "Erro", description: "Tente imagem menor.", variant: "destructive" });
+      toast({ title: "Erro", description: "Tente imagens menores.", variant: "destructive" });
     } finally {
       setUploading(false);
+      // Reset input para permitir selecionar os mesmos arquivos novamente
+      if (event.target) event.target.value = '';
     }
+  };
+
+  const handleRemoveImage = (indexToRemove: number) => {
+    setNewProduct((prev) => ({
+      ...prev,
+      image_urls: prev.image_urls.filter((_, index) => index !== indexToRemove)
+    }));
   };
 
   // --- HELPERS ---
@@ -292,13 +313,15 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
   // --- CRUD PRODUTO ---
   const handleEditProduct = async (product: ProductData) => {
     setEditingId(product.id);
+    // Compatibilidade: se tiver image_url antiga, converte para array
+    const existingImages = product.image_url ? [product.image_url] : [];
     setNewProduct({
       name: product.name,
       category: product.category,
       sku: product.sku_manufacturer || "",
       description: product.description || "",
       dimensions: product.dimensions || [""],
-      image_url: product.image_url || "",
+      image_urls: existingImages,
     });
     const { data: links } = await supabase.from("product_materials").select("material_id").eq("product_id", product.id);
     if (links) {
@@ -310,7 +333,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
 
   const handleCancelEdit = () => {
     setEditingId(null);
-    setNewProduct({ name: "", category: "", sku: "", description: "", dimensions: [""], image_url: "" });
+    setNewProduct({ name: "", category: "", sku: "", description: "", dimensions: [""], image_urls: [] });
     setSelectedMaterials([]);
     setSelectedAmbientes([]);
     setShowOutroTipo(false);
@@ -341,7 +364,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
         sku_manufacturer: newProduct.sku,
         description: newProduct.description,
         dimensions: newProduct.dimensions,
-        image_url: newProduct.image_url,
+        image_url: newProduct.image_urls[0] || null, // Primeira imagem como capa
       };
       let pid = editingId;
       if (editingId) {
@@ -670,7 +693,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                           sku: "",
                           description: "",
                           dimensions: [""],
-                          image_url: "",
+                          image_urls: [],
                         });
                         setSelectedMaterials([]);
                       }}
@@ -805,28 +828,57 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">Fotografia</Label>
-                    <div
-                      onClick={() => document.getElementById("img-up")?.click()}
-                      className="relative h-64 bg-secondary/10 rounded-2xl border-2 border-dashed border-border/60 flex flex-col items-center justify-center cursor-pointer hover:bg-secondary/20 transition-all overflow-hidden group"
-                    >
-                      {newProduct.image_url ? (
-                        <img src={newProduct.image_url} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="text-center text-muted-foreground">
-                          <UploadCloud className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                          <span>Upload Imagem</span>
+                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                      Fotografias ({newProduct.image_urls.length}/10)
+                    </Label>
+                    <p className="text-xs text-muted-foreground">Adicione até 10 fotos do produto. A primeira será a imagem de capa.</p>
+                    
+                    {/* Grid de imagens */}
+                    <div className="grid grid-cols-4 gap-3">
+                      {newProduct.image_urls.map((url, index) => (
+                        <div 
+                          key={index} 
+                          className="relative aspect-square bg-secondary/10 rounded-xl overflow-hidden group"
+                        >
+                          <img src={url} className="w-full h-full object-cover" />
+                          {index === 0 && (
+                            <div className="absolute top-1 left-1 bg-primary text-primary-foreground text-[10px] px-2 py-0.5 rounded-full">
+                              Capa
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage(index)}
+                            className="absolute top-1 right-1 w-6 h-6 bg-destructive text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
                         </div>
-                      )}
-                      {newProduct.image_url && (
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white font-medium">
-                          Trocar Imagem
+                      ))}
+                      
+                      {/* Botão de adicionar */}
+                      {newProduct.image_urls.length < 10 && (
+                        <div
+                          onClick={() => document.getElementById("img-up")?.click()}
+                          className="aspect-square bg-secondary/10 rounded-xl border-2 border-dashed border-border/60 flex flex-col items-center justify-center cursor-pointer hover:bg-secondary/20 transition-all"
+                        >
+                          {uploading ? (
+                            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                          ) : (
+                            <>
+                              <UploadCloud className="w-6 h-6 text-muted-foreground opacity-50 mb-1" />
+                              <span className="text-xs text-muted-foreground">Adicionar</span>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
+                    
                     <input
                       id="img-up"
                       type="file"
+                      multiple
+                      accept="image/*"
                       className="hidden"
                       onChange={handleImageUpload}
                       disabled={uploading}
