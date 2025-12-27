@@ -14,9 +14,15 @@ interface FornecedorProfileProps {
   onComplete: () => void;
 }
 
+interface CategoriaMaterial {
+  id: string;
+  nome: string;
+}
+
 const FornecedorProfile = ({ userId, fornecedorData, onComplete }: FornecedorProfileProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [categorias, setCategorias] = useState<CategoriaMaterial[]>([]);
   const [formData, setFormData] = useState({
     nome: '',
     tipo_material: 'tecido' as const,
@@ -25,6 +31,10 @@ const FornecedorProfile = ({ userId, fornecedorData, onComplete }: FornecedorPro
     estado: '',
     pais: 'Brasil',
   });
+
+  useEffect(() => {
+    fetchCategorias();
+  }, []);
 
   useEffect(() => {
     if (fornecedorData) {
@@ -38,6 +48,15 @@ const FornecedorProfile = ({ userId, fornecedorData, onComplete }: FornecedorPro
       });
     }
   }, [fornecedorData]);
+
+  const fetchCategorias = async () => {
+    const { data } = await supabase
+      .from('categorias_material')
+      .select('id, nome')
+      .eq('ativo', true)
+      .order('ordem');
+    if (data) setCategorias(data);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
