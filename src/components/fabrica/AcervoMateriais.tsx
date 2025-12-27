@@ -67,6 +67,19 @@ const AcervoMateriais = ({ produtoId, onUpdate }: AcervoMateriaisProps) => {
   // Estado para sugestão
   const [showSugestao, setShowSugestao] = useState(false);
   const [sugestaoCategoria, setSugestaoCategoria] = useState('');
+  
+  // Estado para busca
+  const [buscaMaterial, setBuscaMaterial] = useState('');
+  
+  // Materiais filtrados por busca
+  const materiaisFiltrados = materiaisDisponiveis.filter(m => {
+    if (!buscaMaterial.trim()) return true;
+    const termo = buscaMaterial.toLowerCase();
+    return (
+      m.name.toLowerCase().includes(termo) ||
+      (m.sku_supplier && m.sku_supplier.toLowerCase().includes(termo))
+    );
+  });
 
   useEffect(() => {
     fetchCategorias();
@@ -309,6 +322,7 @@ const AcervoMateriais = ({ produtoId, onUpdate }: AcervoMateriaisProps) => {
     setCategoriaSelecionada('');
     setFornecedorSelecionado('');
     setMateriaisDisponiveis([]);
+    setBuscaMaterial('');
   };
 
   return (
@@ -375,13 +389,21 @@ const AcervoMateriais = ({ produtoId, onUpdate }: AcervoMateriaisProps) => {
             <div className="space-y-2">
               <Label className="text-sm font-medium">3. Opções Disponíveis</Label>
               
-              {materiaisDisponiveis.length === 0 ? (
+              {/* Campo de busca */}
+              <Input
+                placeholder="Buscar por nome ou SKU..."
+                value={buscaMaterial}
+                onChange={(e) => setBuscaMaterial(e.target.value)}
+                className="h-8 text-sm"
+              />
+              
+              {materiaisFiltrados.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-3 text-center bg-muted/50 rounded-md">
-                  Nenhum material encontrado para este fornecedor nesta categoria.
+                  {buscaMaterial ? 'Nenhum material encontrado para esta busca.' : 'Nenhum material encontrado para este fornecedor nesta categoria.'}
                 </p>
               ) : (
                 <div className="max-h-60 overflow-y-auto space-y-2">
-                  {materiaisDisponiveis.map((material) => {
+                  {materiaisFiltrados.map((material) => {
                     const jaVinculado = materiaisVinculados.some(m => m.material?.id === material.id);
                     return (
                       <div
