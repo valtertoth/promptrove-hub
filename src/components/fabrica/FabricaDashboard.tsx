@@ -69,6 +69,7 @@ interface MaterialData {
   supplier_name?: string;
   sku_supplier: string;
   image_url: string | null;
+  categoria_id: string | null;
 }
 interface ProductData {
   id: string;
@@ -99,6 +100,10 @@ interface Ambiente {
   id: string;
   nome: string;
 }
+interface CategoriaMaterial {
+  id: string;
+  nome: string;
+}
 
 const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
   const { signOut } = useAuth();
@@ -112,6 +117,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
   const [connections, setConnections] = useState<ConnectionRequest[]>([]);
   const [tiposProduto, setTiposProduto] = useState<TipoProduto[]>([]);
   const [ambientesDisponiveis, setAmbientesDisponiveis] = useState<Ambiente[]>([]);
+  const [categoriasMaterial, setCategoriasMaterial] = useState<CategoriaMaterial[]>([]);
 
   // UI States - Produtos
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -149,12 +155,14 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
   }, []);
 
   const fetchTiposEAmbientes = async () => {
-    const [tiposRes, ambientesRes] = await Promise.all([
+    const [tiposRes, ambientesRes, categoriasRes] = await Promise.all([
       supabase.from('tipos_produto').select('id, nome').eq('ativo', true).order('ordem'),
-      supabase.from('ambientes').select('id, nome').eq('ativo', true).order('ordem')
+      supabase.from('ambientes').select('id, nome').eq('ativo', true).order('ordem'),
+      supabase.from('categorias_material').select('id, nome').eq('ativo', true).order('ordem')
     ]);
     if (tiposRes.data) setTiposProduto(tiposRes.data);
     if (ambientesRes.data) setAmbientesDisponiveis(ambientesRes.data);
+    if (categoriasRes.data) setCategoriasMaterial(categoriasRes.data);
   };
 
   // --- FETCHERS ---
@@ -276,7 +284,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
   }
 
   const uniqueSuppliers = allMaterials
-    .filter((m) => selectedCategory === "todos" || getCategoryGroup(m.type) === selectedCategory)
+    .filter((m) => selectedCategory === "todos" || m.categoria_id === selectedCategory)
     .reduce(
       (acc, current) => {
         const exists = acc.find((item) => item.id === current.supplier_id);
@@ -287,7 +295,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
     );
 
   const displayedMaterials = allMaterials.filter((m) => {
-    const categoryMatch = selectedCategory === "todos" || getCategoryGroup(m.type) === selectedCategory;
+    const categoryMatch = selectedCategory === "todos" || m.categoria_id === selectedCategory;
     const supplierMatch = selectedSupplierId === "todos" || m.supplier_id === selectedSupplierId;
     return categoryMatch && supplierMatch;
   });
@@ -939,8 +947,11 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="todos">Todos</SelectItem>
-                        <SelectItem value="Madeiras">Madeiras</SelectItem>
-                        <SelectItem value="Tecidos">Tecidos</SelectItem>
+                        {categoriasMaterial.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.nome}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <Select value={selectedSupplierId} onValueChange={setSelectedSupplierId}>
