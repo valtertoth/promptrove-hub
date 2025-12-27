@@ -29,15 +29,27 @@ export function useAuth() {
 
   const signOut = async () => {
     try {
-      await supabase.auth.signOut();
+      // Usa logout local para garantir limpeza do storage mesmo se a sessão no servidor já expirou
+      await supabase.auth.signOut({ scope: 'local' });
     } catch (error) {
       console.error('Erro ao fazer logout:', error);
     } finally {
-      // Limpa o estado local independentemente do resultado do servidor
+      // Garante que o token persistido foi removido (evita redirecionar de /auth de volta para /dashboard)
+      try {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i);
+          if (!key) continue;
+          if (/^sb-.*-auth-token$/.test(key) || key === 'supabase.auth.token') {
+            localStorage.removeItem(key);
+          }
+        }
+      } catch {
+        // ignore
+      }
+
       setSession(null);
       setUser(null);
-      // Redireciona para a página de login
-      window.location.href = '/auth';
+      window.location.replace('/auth');
     }
   };
 
