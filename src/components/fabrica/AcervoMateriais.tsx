@@ -112,7 +112,7 @@ const AcervoMateriais = ({ produtoId, onUpdate }: AcervoMateriaisProps) => {
   const fetchFornecedoresPorCategoria = async () => {
     try {
       // Buscar fornecedores que possuem materiais nessa categoria
-      // Primeiro, tenta da tabela materials (para materiais já cadastrados)
+      // A fonte da verdade é a tabela materials
       const { data: materiaisData, error } = await supabase
         .from('materials')
         .select('supplier_id, supplier_name')
@@ -128,20 +128,6 @@ const AcervoMateriais = ({ produtoId, onUpdate }: AcervoMateriaisProps) => {
           fornecedoresUnicos.set(m.supplier_id, m.supplier_name);
         }
       });
-
-      // Também buscar fornecedores reais da tabela fornecedor
-      const { data: fornecedoresReais, error: fornecedoresError } = await supabase
-        .from('fornecedor')
-        .select('id, nome')
-        .eq('ativo', true)
-        .order('nome');
-
-      if (!fornecedoresError && fornecedoresReais) {
-        // Adicionar fornecedores reais ao mapa
-        fornecedoresReais.forEach(f => {
-          fornecedoresUnicos.set(f.id, f.nome);
-        });
-      }
 
       const fornecedoresList: Fornecedor[] = Array.from(fornecedoresUnicos.entries()).map(
         ([id, nome]) => ({ id, nome })
