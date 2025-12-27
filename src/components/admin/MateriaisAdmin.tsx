@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Loader2, Image as ImageIcon, Upload } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Image as ImageIcon, Upload, X } from "lucide-react";
 
 interface Material {
   id: string;
@@ -25,11 +25,6 @@ interface Material {
   created_at: string;
 }
 
-interface Fornecedor {
-  id: string;
-  nome: string;
-}
-
 interface CategoriaMaterial {
   id: string;
   nome: string;
@@ -38,9 +33,14 @@ interface CategoriaMaterial {
 export default function MateriaisAdmin() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [materials, setMaterials] = useState<Material[]>([]);
-  const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [categorias, setCategorias] = useState<CategoriaMaterial[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Extrair fornecedores únicos dos materiais existentes
+  const [fornecedoresUnicos, setFornecedoresUnicos] = useState<{id: string, nome: string}[]>([]);
   
   // Filtros
   const [filtroCategoria, setFiltroCategoria] = useState<string>('all');
@@ -58,7 +58,6 @@ export default function MateriaisAdmin() {
     type: '',
     description: '',
     image_url: '',
-    supplier_id: '',
     supplier_name: '',
     categoria_id: '',
   });
@@ -70,14 +69,25 @@ export default function MateriaisAdmin() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [materialsRes, fornecedoresRes, categoriasRes] = await Promise.all([
+      const [materialsRes, categoriasRes] = await Promise.all([
         supabase.from('materials').select('*').order('created_at', { ascending: false }),
-        supabase.from('fornecedor').select('id, nome').eq('ativo', true).order('nome'),
         supabase.from('categorias_material').select('id, nome').eq('ativo', true).order('nome'),
       ]);
 
-      if (materialsRes.data) setMaterials(materialsRes.data);
-      if (fornecedoresRes.data) setFornecedores(fornecedoresRes.data);
+      if (materialsRes.data) {
+        setMaterials(materialsRes.data);
+        
+        // Extrair fornecedores únicos dos materiais
+        const fornecedoresMap = new Map<string, string>();
+        materialsRes.data.forEach(m => {
+          if (m.supplier_id && m.supplier_name) {
+            fornecedoresMap.set(m.supplier_id, m.supplier_name);
+          }
+        });
+        const fornecedoresList = Array.from(fornecedoresMap, ([id, nome]) => ({ id, nome }));
+        fornecedoresList.sort((a, b) => a.nome.localeCompare(b.nome));
+        setFornecedoresUnicos(fornecedoresList);
+      }
       if (categoriasRes.data) setCategorias(categoriasRes.data);
     } catch (error: any) {
       console.error('Error fetching data:', error);
@@ -87,24 +97,84 @@ export default function MateriaisAdmin() {
     }
   };
 
+  const handleImageUpload = async (file: File, isEdit: boolean = false): Promise<string | null> => {
+    if (!file) return null;
+    
+    // Validar tipo
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Erro', description: 'Por favor, selecione uma imagem válida.', variant: 'destructive' });
+      return null;
+    }
+    
+    // Validar tamanho (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Erro', description: 'A imagem deve ter no máximo 5MB.', variant: 'destructive' });
+      return null;
+    }
+    
+    setUploadingImage(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `materials/${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('materials')
+        .upload(filePath, file);
+      
+      if (uploadError) throw uploadError;
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('materials')
+        .getPublicUrl(filePath);
+      
+      return publicUrl;
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      toast({ title: 'Erro no upload', description: error.message, variant: 'destructive' });
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean = false) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const url = await handleImageUpload(file, isEdit);
+    if (url) {
+      if (isEdit && editingMaterial) {
+        setEditingMaterial({ ...editingMaterial, image_url: url });
+      } else {
+        setNewMaterial({ ...newMaterial, image_url: url });
+      }
+    }
+    
+    // Reset input
+    e.target.value = '';
+  };
+
   const handleCreate = async () => {
-    if (!newMaterial.name.trim() || !newMaterial.supplier_id) {
-      toast({ title: 'Campos obrigatórios', description: 'Informe o nome e selecione o fornecedor.', variant: 'destructive' });
+    if (!newMaterial.name.trim() || !newMaterial.supplier_name.trim()) {
+      toast({ title: 'Campos obrigatórios', description: 'Informe o nome e o fornecedor.', variant: 'destructive' });
       return;
     }
     
     setActionLoading(true);
     try {
-      const selectedFornecedor = fornecedores.find(f => f.id === newMaterial.supplier_id);
       const selectedCategoria = categorias.find(c => c.id === newMaterial.categoria_id);
+      
+      // Gerar um ID para o fornecedor baseado no nome (para consistência)
+      const supplierId = crypto.randomUUID();
       
       const { error } = await supabase.from('materials').insert({
         name: newMaterial.name,
         type: selectedCategoria?.nome || newMaterial.type || 'outro',
         description: newMaterial.description || null,
         image_url: newMaterial.image_url || null,
-        supplier_id: newMaterial.supplier_id,
-        supplier_name: selectedFornecedor?.nome || null,
+        supplier_id: supplierId,
+        supplier_name: newMaterial.supplier_name,
         categoria_id: newMaterial.categoria_id || null,
         is_active: true,
       });
@@ -112,7 +182,7 @@ export default function MateriaisAdmin() {
       if (error) throw error;
       
       toast({ title: 'Material criado', description: `"${newMaterial.name}" foi adicionado.` });
-      setNewMaterial({ name: '', type: '', description: '', image_url: '', supplier_id: '', supplier_name: '', categoria_id: '' });
+      setNewMaterial({ name: '', type: '', description: '', image_url: '', supplier_name: '', categoria_id: '' });
       setIsCreateOpen(false);
       fetchData();
     } catch (error: any) {
@@ -127,7 +197,6 @@ export default function MateriaisAdmin() {
     
     setActionLoading(true);
     try {
-      const selectedFornecedor = fornecedores.find(f => f.id === editingMaterial.supplier_id);
       const selectedCategoria = categorias.find(c => c.id === editingMaterial.categoria_id);
       
       const { error } = await supabase.from('materials').update({
@@ -135,8 +204,7 @@ export default function MateriaisAdmin() {
         type: selectedCategoria?.nome || editingMaterial.type,
         description: editingMaterial.description,
         image_url: editingMaterial.image_url,
-        supplier_id: editingMaterial.supplier_id,
-        supplier_name: selectedFornecedor?.nome || editingMaterial.supplier_name,
+        supplier_name: editingMaterial.supplier_name,
         categoria_id: editingMaterial.categoria_id,
         is_active: editingMaterial.is_active,
       }).eq('id', editingMaterial.id);
@@ -183,6 +251,14 @@ export default function MateriaisAdmin() {
     return cat?.nome || '-';
   };
 
+  const removeImage = (isEdit: boolean = false) => {
+    if (isEdit && editingMaterial) {
+      setEditingMaterial({ ...editingMaterial, image_url: null });
+    } else {
+      setNewMaterial({ ...newMaterial, image_url: '' });
+    }
+  };
+
   // Filtrar materiais
   const materialsFiltrados = materials.filter(m => {
     if (filtroCategoria !== 'all' && m.categoria_id !== filtroCategoria) return false;
@@ -199,6 +275,67 @@ export default function MateriaisAdmin() {
       </div>
     );
   }
+
+  const ImageUploadField = ({ 
+    imageUrl, 
+    onUpload, 
+    onRemove, 
+    inputRef 
+  }: { 
+    imageUrl: string | null | undefined; 
+    onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onRemove: () => void;
+    inputRef: React.RefObject<HTMLInputElement>;
+  }) => (
+    <div className="space-y-2">
+      <Label>Imagem do Material</Label>
+      <input
+        type="file"
+        ref={inputRef}
+        onChange={onUpload}
+        accept="image/*"
+        className="hidden"
+      />
+      {imageUrl ? (
+        <div className="relative inline-block">
+          <img 
+            src={imageUrl} 
+            alt="Preview" 
+            className="w-24 h-24 object-cover rounded border"
+          />
+          <Button
+            type="button"
+            variant="destructive"
+            size="icon"
+            className="absolute -top-2 -right-2 h-6 w-6"
+            onClick={onRemove}
+          >
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
+      ) : (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => inputRef.current?.click()}
+          disabled={uploadingImage}
+          className="w-full h-24 border-dashed"
+        >
+          {uploadingImage ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Enviando...
+            </>
+          ) : (
+            <>
+              <Upload className="h-4 w-4 mr-2" />
+              Clique para enviar imagem
+            </>
+          )}
+        </Button>
+      )}
+    </div>
+  );
 
   return (
     <Card>
@@ -226,17 +363,19 @@ export default function MateriaisAdmin() {
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="fornecedor">Fornecedor *</Label>
-                  <Select value={newMaterial.supplier_id} onValueChange={(v) => setNewMaterial({ ...newMaterial, supplier_id: v })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o fornecedor" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {fornecedores.map((f) => (
-                        <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="supplier_name">Nome do Fornecedor *</Label>
+                  <Input
+                    id="supplier_name"
+                    value={newMaterial.supplier_name}
+                    onChange={(e) => setNewMaterial({ ...newMaterial, supplier_name: e.target.value })}
+                    placeholder="Ex: Quacker Têxteis, Tela Brasil..."
+                    list="fornecedores-list"
+                  />
+                  <datalist id="fornecedores-list">
+                    {fornecedoresUnicos.map((f) => (
+                      <option key={f.id} value={f.nome} />
+                    ))}
+                  </datalist>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="categoria">Categoria de Material</Label>
@@ -270,29 +409,16 @@ export default function MateriaisAdmin() {
                     rows={3}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="image_url">URL da Imagem</Label>
-                  <Input
-                    id="image_url"
-                    value={newMaterial.image_url}
-                    onChange={(e) => setNewMaterial({ ...newMaterial, image_url: e.target.value })}
-                    placeholder="https://..."
-                  />
-                  {newMaterial.image_url && (
-                    <div className="mt-2">
-                      <img 
-                        src={newMaterial.image_url} 
-                        alt="Preview" 
-                        className="w-20 h-20 object-cover rounded border"
-                        onError={(e) => (e.currentTarget.style.display = 'none')}
-                      />
-                    </div>
-                  )}
-                </div>
+                <ImageUploadField
+                  imageUrl={newMaterial.image_url}
+                  onUpload={(e) => handleFileChange(e, false)}
+                  onRemove={() => removeImage(false)}
+                  inputRef={fileInputRef as React.RefObject<HTMLInputElement>}
+                />
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsCreateOpen(false)}>Cancelar</Button>
-                <Button onClick={handleCreate} disabled={actionLoading}>
+                <Button onClick={handleCreate} disabled={actionLoading || uploadingImage}>
                   {actionLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   Criar
                 </Button>
@@ -328,7 +454,7 @@ export default function MateriaisAdmin() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos Fornecedores</SelectItem>
-              {fornecedores.map((f) => (
+              {fornecedoresUnicos.map((f) => (
                 <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
               ))}
             </SelectContent>
@@ -419,20 +545,19 @@ export default function MateriaisAdmin() {
             {editingMaterial && (
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-fornecedor">Fornecedor</Label>
-                  <Select 
-                    value={editingMaterial.supplier_id} 
-                    onValueChange={(v) => setEditingMaterial({ ...editingMaterial, supplier_id: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o fornecedor" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {fornecedores.map((f) => (
-                        <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="edit-supplier_name">Nome do Fornecedor *</Label>
+                  <Input
+                    id="edit-supplier_name"
+                    value={editingMaterial.supplier_name || ''}
+                    onChange={(e) => setEditingMaterial({ ...editingMaterial, supplier_name: e.target.value })}
+                    placeholder="Ex: Quacker Têxteis, Tela Brasil..."
+                    list="fornecedores-edit-list"
+                  />
+                  <datalist id="fornecedores-edit-list">
+                    {fornecedoresUnicos.map((f) => (
+                      <option key={f.id} value={f.nome} />
+                    ))}
+                  </datalist>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-categoria">Categoria de Material</Label>
@@ -451,11 +576,12 @@ export default function MateriaisAdmin() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-name">Nome do Material</Label>
+                  <Label htmlFor="edit-name">Nome do Material *</Label>
                   <Input
                     id="edit-name"
                     value={editingMaterial.name}
                     onChange={(e) => setEditingMaterial({ ...editingMaterial, name: e.target.value })}
+                    placeholder="Ex: Azul Celeste, Carvalho Natural..."
                   />
                 </div>
                 <div className="space-y-2">
@@ -464,33 +590,21 @@ export default function MateriaisAdmin() {
                     id="edit-description"
                     value={editingMaterial.description || ''}
                     onChange={(e) => setEditingMaterial({ ...editingMaterial, description: e.target.value })}
+                    placeholder="Descrição do material..."
                     rows={3}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-image_url">URL da Imagem</Label>
-                  <Input
-                    id="edit-image_url"
-                    value={editingMaterial.image_url || ''}
-                    onChange={(e) => setEditingMaterial({ ...editingMaterial, image_url: e.target.value })}
-                    placeholder="https://..."
-                  />
-                  {editingMaterial.image_url && (
-                    <div className="mt-2">
-                      <img 
-                        src={editingMaterial.image_url} 
-                        alt="Preview" 
-                        className="w-20 h-20 object-cover rounded border"
-                        onError={(e) => (e.currentTarget.style.display = 'none')}
-                      />
-                    </div>
-                  )}
-                </div>
+                <ImageUploadField
+                  imageUrl={editingMaterial.image_url}
+                  onUpload={(e) => handleFileChange(e, true)}
+                  onRemove={() => removeImage(true)}
+                  inputRef={editFileInputRef as React.RefObject<HTMLInputElement>}
+                />
               </div>
             )}
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancelar</Button>
-              <Button onClick={handleUpdate} disabled={actionLoading}>
+              <Button onClick={handleUpdate} disabled={actionLoading || uploadingImage}>
                 {actionLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Salvar
               </Button>
