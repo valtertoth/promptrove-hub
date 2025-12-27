@@ -146,30 +146,44 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
   };
 
   const handleSaveMaterial = async () => {
-    if (!newMaterial.name || !newMaterial.type || !fornecedorId) {
-      toast({ title: "Erro", description: "Dados incompletos.", variant: "destructive" });
+    if (!newMaterial.name || !newMaterial.categoria_id || !fornecedorId) {
+      toast({ title: "Erro", description: "Preencha o nome e selecione uma categoria.", variant: "destructive" });
       return;
     }
     setLoading(true);
+    
+    // Buscar o nome da categoria para usar como type
+    const categoria = categorias.find(c => c.id === newMaterial.categoria_id);
+    const tipoMaterial = categoria?.nome || newMaterial.type || 'outro';
+    
     const payload = {
       supplier_id: fornecedorId,
       supplier_name: fornecedorNome,
       name: newMaterial.name,
-      type: newMaterial.type,
+      type: tipoMaterial,
       sku_supplier: newMaterial.sku_supplier,
       description: newMaterial.description,
       image_url: newMaterial.image_url,
-      categoria_id: newMaterial.categoria_id || null,
+      categoria_id: newMaterial.categoria_id,
       is_active: true,
     };
-    if (editingId) await supabase.from("materials").update(payload).eq("id", editingId);
-    else await supabase.from("materials").insert(payload);
-    toast({ title: "Salvo com sucesso", className: "bg-[#103927] text-white" });
-    setNewMaterial({ name: "", type: "", description: "", sku_supplier: "", image_url: "", categoria_id: "" });
-    setEditingId(null);
-    fetchMaterials();
-    setActiveTab("catalog");
-    setLoading(false);
+    
+    try {
+      if (editingId) {
+        await supabase.from("materials").update(payload).eq("id", editingId);
+      } else {
+        await supabase.from("materials").insert(payload);
+      }
+      toast({ title: "Salvo com sucesso", className: "bg-[#103927] text-white" });
+      setNewMaterial({ name: "", type: "", description: "", sku_supplier: "", image_url: "", categoria_id: "" });
+      setEditingId(null);
+      fetchMaterials();
+      setActiveTab("catalog");
+    } catch (error: any) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -348,7 +362,9 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
                 </div>
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <Label className="uppercase text-xs tracking-wider text-muted-foreground">Nome do Material</Label>
+                    <Label className="uppercase text-xs tracking-wider text-muted-foreground">
+                      Nome do Material <span className="text-destructive">*</span>
+                    </Label>
                     <Input
                       className="h-14 rounded-2xl bg-secondary/10 border-0 text-lg focus:ring-1 focus:ring-blue-700"
                       value={newMaterial.name}
@@ -358,7 +374,9 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
                   </div>
                   <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <Label className="uppercase text-xs tracking-wider text-muted-foreground">Categoria</Label>
+                      <Label className="uppercase text-xs tracking-wider text-muted-foreground">
+                        Categoria <span className="text-destructive">*</span>
+                      </Label>
                       <Select
                         value={newMaterial.categoria_id}
                         onValueChange={(val) => {
