@@ -91,6 +91,14 @@ interface NegotiationData {
   commission: string;
   region: string;
 }
+interface TipoProduto {
+  id: string;
+  nome: string;
+}
+interface Ambiente {
+  id: string;
+  nome: string;
+}
 
 const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
   const { signOut } = useAuth();
@@ -102,6 +110,8 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
   const [allMaterials, setAllMaterials] = useState<MaterialData[]>([]);
   const [myProducts, setMyProducts] = useState<ProductData[]>([]);
   const [connections, setConnections] = useState<ConnectionRequest[]>([]);
+  const [tiposProduto, setTiposProduto] = useState<TipoProduto[]>([]);
+  const [ambientesDisponiveis, setAmbientesDisponiveis] = useState<Ambiente[]>([]);
 
   // UI States - Produtos
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -113,6 +123,13 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
   const [isApproveOpen, setIsApproveOpen] = useState(false);
   const [selectedConnection, setSelectedConnection] = useState<ConnectionRequest | null>(null);
   const [negotiation, setNegotiation] = useState<NegotiationData>({ commission: "10", region: "" });
+  
+  // UI States - Sugestões
+  const [showOutroTipo, setShowOutroTipo] = useState(false);
+  const [sugestaoTipo, setSugestaoTipo] = useState('');
+  const [selectedAmbientes, setSelectedAmbientes] = useState<string[]>([]);
+  const [showOutroAmbiente, setShowOutroAmbiente] = useState(false);
+  const [sugestaoAmbiente, setSugestaoAmbiente] = useState('');
 
   // Formulário Produto
   const [newProduct, setNewProduct] = useState({
@@ -128,7 +145,17 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
     fetchMaterials();
     fetchMyProducts();
     fetchConnections();
+    fetchTiposEAmbientes();
   }, []);
+
+  const fetchTiposEAmbientes = async () => {
+    const [tiposRes, ambientesRes] = await Promise.all([
+      supabase.from('tipos_produto').select('id, nome').eq('ativo', true).order('ordem'),
+      supabase.from('ambientes').select('id, nome').eq('ativo', true).order('ordem')
+    ]);
+    if (tiposRes.data) setTiposProduto(tiposRes.data);
+    if (ambientesRes.data) setAmbientesDisponiveis(ambientesRes.data);
+  };
 
   // --- FETCHERS ---
   const fetchMaterials = async () => {
@@ -285,6 +312,9 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
     setEditingId(null);
     setNewProduct({ name: "", category: "", sku: "", description: "", dimensions: [""], image_url: "" });
     setSelectedMaterials([]);
+    setSelectedAmbientes([]);
+    setShowOutroTipo(false);
+    setSugestaoTipo('');
     setActiveTab("products");
   };
 
@@ -661,15 +691,119 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Categoria</Label>
-                      <Input
-                        className="h-12 rounded-xl bg-secondary/10 border-0 focus:ring-1 focus:ring-[#103927]"
-                        placeholder="Assentos"
-                        value={newProduct.category}
-                        onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
-                      />
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Categoria *</Label>
+                      {showOutroTipo ? (
+                        <div className="space-y-2">
+                          <Input
+                            className="h-12 rounded-xl bg-secondary/10 border-0 focus:ring-1 focus:ring-[#103927]"
+                            placeholder="Digite o nome da nova categoria..."
+                            value={sugestaoTipo}
+                            onChange={(e) => setSugestaoTipo(e.target.value)}
+                          />
+                          <div className="flex gap-2">
+                            <Button 
+                              type="button" 
+                              size="sm" 
+                              onClick={async () => {
+                                if (!sugestaoTipo.trim()) return;
+                                // Aqui podemos enviar para aprovação ou usar diretamente
+                                toast({ title: 'Categoria personalizada definida', description: `"${sugestaoTipo}" será usada para este produto.` });
+                                setNewProduct({ ...newProduct, category: sugestaoTipo });
+                                setShowOutroTipo(false);
+                                setSugestaoTipo('');
+                              }}
+                              className="bg-primary"
+                            >
+                              Usar
+                            </Button>
+                            <Button type="button" size="sm" variant="outline" onClick={() => { setShowOutroTipo(false); setSugestaoTipo(''); }}>
+                              Cancelar
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <Select 
+                          value={newProduct.category} 
+                          onValueChange={(v) => {
+                            if (v === 'outro') {
+                              setShowOutroTipo(true);
+                            } else {
+                              setNewProduct({ ...newProduct, category: v });
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-12 rounded-xl bg-secondary/10 border-0 focus:ring-1 focus:ring-[#103927]">
+                            <SelectValue placeholder="Selecione a categoria" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-white z-50">
+                            {tiposProduto.map((tipo) => (
+                              <SelectItem key={tipo.id} value={tipo.nome}>{tipo.nome}</SelectItem>
+                            ))}
+                            <SelectItem value="outro">Outro (sugerir nova categoria)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
                   </div>
+                  
+                  {/* Seleção de Ambientes */}
+                  <div className="space-y-2">
+                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">Ambientes</Label>
+                    <p className="text-xs text-muted-foreground mb-2">Selecione os ambientes onde este produto pode ser usado</p>
+                    <div className="flex flex-wrap gap-2 p-4 rounded-2xl bg-secondary/10">
+                      {ambientesDisponiveis.map((ambiente) => (
+                        <Badge
+                          key={ambiente.id}
+                          variant={selectedAmbientes.includes(ambiente.nome) ? "default" : "outline"}
+                          className="cursor-pointer py-2 px-3 hover:bg-primary hover:text-primary-foreground transition-colors"
+                          onClick={() => {
+                            if (selectedAmbientes.includes(ambiente.nome)) {
+                              setSelectedAmbientes(selectedAmbientes.filter(a => a !== ambiente.nome));
+                            } else {
+                              setSelectedAmbientes([...selectedAmbientes, ambiente.nome]);
+                            }
+                          }}
+                        >
+                          {ambiente.nome}
+                          {selectedAmbientes.includes(ambiente.nome) && <X className="w-3 h-3 ml-1" />}
+                        </Badge>
+                      ))}
+                      <Badge
+                        variant="outline"
+                        className="cursor-pointer py-2 px-3 border-dashed hover:bg-muted transition-colors"
+                        onClick={() => setShowOutroAmbiente(true)}
+                      >
+                        + Outro
+                      </Badge>
+                    </div>
+                    {showOutroAmbiente && (
+                      <div className="flex gap-2 mt-2">
+                        <Input
+                          placeholder="Nome do ambiente..."
+                          value={sugestaoAmbiente}
+                          onChange={(e) => setSugestaoAmbiente(e.target.value)}
+                          className="rounded-xl"
+                        />
+                        <Button 
+                          size="sm" 
+                          onClick={() => {
+                            if (sugestaoAmbiente.trim()) {
+                              setSelectedAmbientes([...selectedAmbientes, sugestaoAmbiente]);
+                              setSugestaoAmbiente('');
+                              setShowOutroAmbiente(false);
+                              toast({ title: 'Ambiente adicionado', description: `"${sugestaoAmbiente}" foi adicionado.` });
+                            }
+                          }}
+                        >
+                          Adicionar
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => { setShowOutroAmbiente(false); setSugestaoAmbiente(''); }}>
+                          Cancelar
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  
                   <div className="space-y-2">
                     <Label className="text-xs uppercase tracking-wider text-muted-foreground">Fotografia</Label>
                     <div
