@@ -11,6 +11,7 @@ import VariacoesList from './VariacoesList';
 import ImageUpload from './ImageUpload';
 import FornecedorSelector from './FornecedorSelector';
 import PersonalizacoesManager from './PersonalizacoesManager';
+import AcervoMateriais from './AcervoMateriais';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 
@@ -285,11 +286,14 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
         Voltar
       </Button>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{produto ? 'Editar Produto' : 'Novo Produto'}</CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Coluna principal - Formulário */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>{produto ? 'Editar Produto' : 'Nova Peça'}</CardTitle>
+            </CardHeader>
+            <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* TIPO DE PRODUTO - PRIMEIRO CAMPO */}
             <div className="space-y-2">
@@ -431,115 +435,127 @@ const ProdutoForm = ({ fabricaId, produto, onClose }: ProdutoFormProps) => {
               </>
             )}
           </form>
-        </CardContent>
-      </Card>
-
-      {/* PersonalizacoesManager - Aparece após criar/editar o produto */}
-      {produtoId && (
-        <>
-          <PersonalizacoesManager produtoId={produtoId} fabricaId={fabricaId} />
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Imagens do Produto</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ImageUpload
-                fabricaId={fabricaId}
-                images={images}
-                onImagesChange={setImages}
-                maxImages={10}
-              />
             </CardContent>
           </Card>
-        </>
-      )}
 
-      {formData.tipo_produto && !showOutroTipo && produtoId && (
-        <>
-          <Card>
-            <CardHeader>
-              <CardTitle>Ambientes</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground mb-2">
-                  Selecione os ambientes onde este produto pode ser usado
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {ambientesDisponiveis.map((ambiente) => (
-                    <Badge
-                      key={ambiente.id}
-                      variant={ambientesSelecionados.includes(ambiente.nome) ? "default" : "outline"}
-                      className="cursor-pointer justify-center py-2 hover:bg-primary hover:text-primary-foreground transition-colors"
-                      onClick={() => toggleAmbiente(ambiente.nome)}
-                    >
-                      {ambiente.nome}
-                      {ambientesSelecionados.includes(ambiente.nome) && (
-                        <X className="w-3 h-3 ml-1" />
-                      )}
-                    </Badge>
-                  ))}
-                  <Badge
-                    variant="outline"
-                    className="cursor-pointer justify-center py-2 border-dashed hover:bg-muted transition-colors"
-                    onClick={() => setShowOutroAmbiente(true)}
-                  >
-                    <Plus className="w-3 h-3 mr-1" />
-                    Outro
-                  </Badge>
-                </div>
-                
-                {showOutroAmbiente && (
-                  <Card className="mt-4 p-4 border-primary">
-                    <div className="space-y-3">
-                      <p className="text-sm text-muted-foreground">
-                        Não encontrou o ambiente que procura? Sugira um novo para nossa equipe avaliar.
-                      </p>
-                      <div className="space-y-2">
-                        <Label htmlFor="sugestao-ambiente">Nome do Ambiente *</Label>
-                        <Input
-                          id="sugestao-ambiente"
-                          value={sugestaoAmbiente}
-                          onChange={(e) => setSugestaoAmbiente(e.target.value)}
-                          placeholder="Ex: Home Office, Área Gourmet..."
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button type="button" onClick={handleSubmitSugestaoAmbiente} className="flex-1">
-                          Enviar Sugestão
-                        </Button>
-                        <Button type="button" variant="outline" onClick={() => setShowOutroAmbiente(false)}>
-                          Cancelar
-                        </Button>
-                      </div>
+          {/* PersonalizacoesManager - Aparece após criar/editar o produto */}
+          {produtoId && (
+            <>
+              <PersonalizacoesManager produtoId={produtoId} fabricaId={fabricaId} />
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>Fotografias ({images.length}/10)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Adicione até 10 fotos do produto. A primeira será a imagem de capa.
+                  </p>
+                  <ImageUpload
+                    fabricaId={fabricaId}
+                    images={images}
+                    onImagesChange={setImages}
+                    maxImages={10}
+                  />
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          {formData.tipo_produto && !showOutroTipo && produtoId && (
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Ambientes</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Selecione os ambientes onde este produto pode ser usado
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {ambientesDisponiveis.map((ambiente) => (
+                        <Badge
+                          key={ambiente.id}
+                          variant={ambientesSelecionados.includes(ambiente.nome) ? "default" : "outline"}
+                          className="cursor-pointer py-2 px-3 hover:bg-primary hover:text-primary-foreground transition-colors"
+                          onClick={() => toggleAmbiente(ambiente.nome)}
+                        >
+                          {ambiente.nome}
+                          {ambientesSelecionados.includes(ambiente.nome) && (
+                            <X className="w-3 h-3 ml-1" />
+                          )}
+                        </Badge>
+                      ))}
+                      <Badge
+                        variant="outline"
+                        className="cursor-pointer py-2 px-3 border-dashed hover:bg-muted transition-colors"
+                        onClick={() => setShowOutroAmbiente(true)}
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        Outro
+                      </Badge>
                     </div>
-                  </Card>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                    
+                    {showOutroAmbiente && (
+                      <Card className="mt-4 p-4 border-primary">
+                        <div className="space-y-3">
+                          <p className="text-sm text-muted-foreground">
+                            Não encontrou o ambiente que procura? Sugira um novo para nossa equipe avaliar.
+                          </p>
+                          <div className="space-y-2">
+                            <Label htmlFor="sugestao-ambiente">Nome do Ambiente *</Label>
+                            <Input
+                              id="sugestao-ambiente"
+                              value={sugestaoAmbiente}
+                              onChange={(e) => setSugestaoAmbiente(e.target.value)}
+                              placeholder="Ex: Home Office, Área Gourmet..."
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <Button type="button" onClick={handleSubmitSugestaoAmbiente} className="flex-1">
+                              Enviar Sugestão
+                            </Button>
+                            <Button type="button" variant="outline" onClick={() => setShowOutroAmbiente(false)}>
+                              Cancelar
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Tempo de Fabricação</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <Label htmlFor="tempo">Tempo de Fabricação (dias)</Label>
-                <Input
-                  id="tempo"
-                  type="number"
-                  min="1"
-                  value={formData.tempo_fabricacao_dias}
-                  onChange={(e) => setFormData({ ...formData, tempo_fabricacao_dias: e.target.value })}
-                  placeholder="Ex: 30"
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </>
-      )}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Tempo de Fabricação</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <Label htmlFor="tempo">Tempo de Fabricação (dias)</Label>
+                    <Input
+                      id="tempo"
+                      type="number"
+                      min="1"
+                      value={formData.tempo_fabricacao_dias}
+                      onChange={(e) => setFormData({ ...formData, tempo_fabricacao_dias: e.target.value })}
+                      placeholder="Ex: 30"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </div>
+
+        {/* Coluna lateral - Acervo de Materiais */}
+        {produtoId && (
+          <div className="lg:col-span-1">
+            <AcervoMateriais produtoId={produtoId} />
+          </div>
+        )}
+      </div>
     </div>
   );
 };

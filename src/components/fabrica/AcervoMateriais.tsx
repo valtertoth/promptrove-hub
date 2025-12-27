@@ -132,7 +132,7 @@ const AcervoMateriais = ({ produtoId, onUpdate }: AcervoMateriaisProps) => {
   const fetchMateriaisVinculados = async () => {
     try {
       const { data, error } = await supabase
-        .from('product_materials')
+        .from('produto_materiais')
         .select(`
           id,
           material:material_id (
@@ -146,7 +146,7 @@ const AcervoMateriais = ({ produtoId, onUpdate }: AcervoMateriaisProps) => {
             image_url
           )
         `)
-        .eq('product_id', produtoId);
+        .eq('produto_id', produtoId);
 
       if (error) throw error;
       setMateriaisVinculados(data || []);
@@ -170,9 +170,9 @@ const AcervoMateriais = ({ produtoId, onUpdate }: AcervoMateriaisProps) => {
     setLoading(true);
     try {
       const { error } = await supabase
-        .from('product_materials')
+        .from('produto_materiais')
         .insert({
-          product_id: produtoId,
+          produto_id: produtoId,
           material_id: materialId,
         });
 
@@ -200,7 +200,7 @@ const AcervoMateriais = ({ produtoId, onUpdate }: AcervoMateriaisProps) => {
   const handleDesvincularMaterial = async (vinculoId: string) => {
     try {
       const { error } = await supabase
-        .from('product_materials')
+        .from('produto_materiais')
         .delete()
         .eq('id', vinculoId);
 
