@@ -5,8 +5,9 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Package, Plus, Trash2, X } from 'lucide-react';
+import { Package, Plus, Trash2, X, ChevronRight, Upload, Image } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -50,14 +51,16 @@ const AcervoMateriais = ({ produtoId, onUpdate }: AcervoMateriaisProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   
-  // Estados para filtros
+  // Estados para seleção hierárquica
   const [categorias, setCategorias] = useState<CategoriaMaterial[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
-  const [categoriaFiltro, setCategoriaFiltro] = useState<string>('todos');
-  const [fornecedorFiltro, setFornecedorFiltro] = useState<string>('todos');
-  
-  // Estados para materiais
   const [materiaisDisponiveis, setMateriaisDisponiveis] = useState<Material[]>([]);
+  
+  // Seleções atuais
+  const [categoriaSelecionada, setCategoriaSelecionada] = useState<string>('');
+  const [fornecedorSelecionado, setFornecedorSelecionado] = useState<string>('');
+  
+  // Materiais vinculados ao produto
   const [materiaisVinculados, setMateriaisVinculados] = useState<MaterialVinculado[]>([]);
   
   // Estado para sugestão
@@ -66,13 +69,30 @@ const AcervoMateriais = ({ produtoId, onUpdate }: AcervoMateriaisProps) => {
 
   useEffect(() => {
     fetchCategorias();
-    fetchFornecedores();
     fetchMateriaisVinculados();
   }, [produtoId]);
 
+  // Quando categoria muda, buscar fornecedores disponíveis para essa categoria
   useEffect(() => {
-    fetchMateriais();
-  }, [categoriaFiltro, fornecedorFiltro]);
+    if (categoriaSelecionada) {
+      fetchFornecedoresPorCategoria();
+      setFornecedorSelecionado('');
+      setMateriaisDisponiveis([]);
+    } else {
+      setFornecedores([]);
+      setFornecedorSelecionado('');
+      setMateriaisDisponiveis([]);
+    }
+  }, [categoriaSelecionada]);
+
+  // Quando fornecedor muda, buscar materiais disponíveis
+  useEffect(() => {
+    if (categoriaSelecionada && fornecedorSelecionado) {
+      fetchMateriais();
+    } else {
+      setMateriaisDisponiveis([]);
+    }
+  }, [fornecedorSelecionado]);
 
   const fetchCategorias = async () => {
     try {
@@ -89,16 +109,44 @@ const AcervoMateriais = ({ produtoId, onUpdate }: AcervoMateriaisProps) => {
     }
   };
 
-  const fetchFornecedores = async () => {
+  const fetchFornecedoresPorCategoria = async () => {
     try {
-      const { data, error } = await supabase
-        .from('fornecedor')
-        .select('id, nome')
-        .eq('ativo', true)
-        .order('nome');
+      // Buscar fornecedores que possuem materiais nessa categoria
+      const { data: materiaisData, error } = await supabase
+        .from('materials')
+        .select('supplier_id, supplier_name')
+        .eq('categoria_id', categoriaSelecionada)
+        .eq('is_active', true);
 
       if (error) throw error;
-      setFornecedores(data || []);
+
+      // Extrair fornecedores únicos
+      const fornecedoresUnicos = new Map<string, string>();
+      materiaisData?.forEach(m => {
+        if (m.supplier_id && m.supplier_name) {
+          fornecedoresUnicos.set(m.supplier_id, m.supplier_name);
+        }
+      });
+
+      const fornecedoresList: Fornecedor[] = Array.from(fornecedoresUnicos.entries()).map(
+        ([id, nome]) => ({ id, nome })
+      );
+
+      // Se não encontrou fornecedores via materials, buscar da tabela fornecedor
+      if (fornecedoresList.length === 0) {
+        const { data: fornecedoresData, error: fornecedoresError } = await supabase
+          .from('fornecedor')
+          .select('id, nome')
+          .eq('ativo', true)
+          .order('nome');
+
+        if (!fornecedoresError && fornecedoresData) {
+          setFornecedores(fornecedoresData);
+          return;
+        }
+      }
+
+      setFornecedores(fornecedoresList);
     } catch (error) {
       console.error('Error fetching fornecedores:', error);
     }
@@ -106,21 +154,13 @@ const AcervoMateriais = ({ produtoId, onUpdate }: AcervoMateriaisProps) => {
 
   const fetchMateriais = async () => {
     try {
-      let query = supabase
+      const { data, error } = await supabase
         .from('materials')
         .select('*')
         .eq('is_active', true)
+        .eq('categoria_id', categoriaSelecionada)
+        .eq('supplier_id', fornecedorSelecionado)
         .order('name');
-
-      if (categoriaFiltro && categoriaFiltro !== 'todos') {
-        query = query.eq('categoria_id', categoriaFiltro);
-      }
-
-      if (fornecedorFiltro && fornecedorFiltro !== 'todos') {
-        query = query.eq('supplier_id', fornecedorFiltro);
-      }
-
-      const { data, error } = await query;
 
       if (error) throw error;
       setMateriaisDisponiveis(data || []);
@@ -273,6 +313,12 @@ const AcervoMateriais = ({ produtoId, onUpdate }: AcervoMateriaisProps) => {
     return cat?.nome || 'Desconhecido';
   };
 
+  const limparSelecao = () => {
+    setCategoriaSelecionada('');
+    setFornecedorSelecionado('');
+    setMateriaisDisponiveis([]);
+  };
+
   return (
     <Card className="h-fit sticky top-4">
       <CardHeader className="pb-3">
@@ -282,86 +328,126 @@ const AcervoMateriais = ({ produtoId, onUpdate }: AcervoMateriaisProps) => {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Filtros */}
-        <div className="grid grid-cols-2 gap-2">
-          <Select value={categoriaFiltro} onValueChange={setCategoriaFiltro}>
-            <SelectTrigger className="h-9">
-              <SelectValue placeholder="Categoria" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todas Categorias</SelectItem>
-              {categorias.map((cat) => (
-                <SelectItem key={cat.id} value={cat.id}>
-                  {cat.nome}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Seleção Hierárquica */}
+        <div className="space-y-3">
+          {/* Step 1: Categoria */}
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">1. Categoria do Material</Label>
+            <Select 
+              value={categoriaSelecionada} 
+              onValueChange={(value) => setCategoriaSelecionada(value)}
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Selecione a categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                {categorias.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.id}>
+                    {cat.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <Select value={fornecedorFiltro} onValueChange={setFornecedorFiltro}>
-            <SelectTrigger className="h-9">
-              <SelectValue placeholder="Fornecedor" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos Fornecedores</SelectItem>
-              {fornecedores.map((forn) => (
-                <SelectItem key={forn.id} value={forn.id}>
-                  {forn.nome}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+          {/* Step 2: Fornecedor (aparece após selecionar categoria) */}
+          {categoriaSelecionada && (
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">2. Fornecedor</Label>
+              {fornecedores.length > 0 ? (
+                <Select 
+                  value={fornecedorSelecionado} 
+                  onValueChange={setFornecedorSelecionado}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Selecione o fornecedor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {fornecedores.map((forn) => (
+                      <SelectItem key={forn.id} value={forn.id}>
+                        {forn.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm text-muted-foreground py-2">
+                  Nenhum fornecedor com materiais nesta categoria.
+                </p>
+              )}
+            </div>
+          )}
 
-        {/* Lista de Materiais Disponíveis */}
-        <div className="space-y-2">
-          <Label className="text-sm text-muted-foreground">
-            Clique para adicionar ao produto
-          </Label>
-          
-          {materiaisDisponiveis.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              Nenhum material encontrado com os filtros selecionados.
-            </p>
-          ) : (
-            <div className="max-h-60 overflow-y-auto space-y-1">
-              {materiaisDisponiveis.map((material) => {
-                const jaVinculado = materiaisVinculados.some(m => m.material?.id === material.id);
-                return (
-                  <div
-                    key={material.id}
-                    className={`p-2 border rounded-md cursor-pointer transition-colors ${
-                      jaVinculado 
-                        ? 'bg-muted border-primary opacity-60' 
-                        : 'hover:bg-accent'
-                    }`}
-                    onClick={() => !jaVinculado && handleVincularMaterial(material.id)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{material.name}</p>
-                        <div className="flex gap-1 mt-0.5">
-                          <Badge variant="outline" className="text-xs">
-                            {getCategoriaNome(material.categoria_id)}
-                          </Badge>
-                          {material.supplier_name && (
-                            <Badge variant="secondary" className="text-xs truncate max-w-[100px]">
-                              {material.supplier_name}
-                            </Badge>
-                          )}
+          {/* Step 3: Opções de Material (aparece após selecionar fornecedor) */}
+          {categoriaSelecionada && fornecedorSelecionado && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">3. Opções Disponíveis</Label>
+              
+              {materiaisDisponiveis.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-3 text-center bg-muted/50 rounded-md">
+                  Nenhum material encontrado para este fornecedor nesta categoria.
+                </p>
+              ) : (
+                <div className="max-h-60 overflow-y-auto space-y-2">
+                  {materiaisDisponiveis.map((material) => {
+                    const jaVinculado = materiaisVinculados.some(m => m.material?.id === material.id);
+                    return (
+                      <div
+                        key={material.id}
+                        className={`p-3 border rounded-lg cursor-pointer transition-all ${
+                          jaVinculado 
+                            ? 'bg-primary/10 border-primary opacity-70 cursor-not-allowed' 
+                            : 'hover:bg-accent hover:border-primary/50'
+                        }`}
+                        onClick={() => !jaVinculado && handleVincularMaterial(material.id)}
+                      >
+                        <div className="flex items-start gap-3">
+                          {/* Imagem do Material */}
+                          <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center shrink-0 overflow-hidden">
+                            {material.image_url ? (
+                              <img 
+                                src={material.image_url} 
+                                alt={material.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <Image className="w-5 h-5 text-muted-foreground" />
+                            )}
+                          </div>
+                          
+                          {/* Info do Material */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-medium truncate">{material.name}</p>
+                              {jaVinculado ? (
+                                <Badge variant="default" className="text-xs shrink-0 ml-2">
+                                  Adicionado
+                                </Badge>
+                              ) : (
+                                <Plus className="w-4 h-4 text-primary shrink-0 ml-2" />
+                              )}
+                            </div>
+                            {material.description && (
+                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                                {material.description}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      {jaVinculado ? (
-                        <Badge variant="default" className="text-xs shrink-0">
-                          Adicionado
-                        </Badge>
-                      ) : (
-                        <Plus className="w-4 h-4 text-muted-foreground shrink-0" />
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              )}
+              
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-xs"
+                onClick={limparSelecao}
+              >
+                Limpar seleção
+              </Button>
             </div>
           )}
         </div>
@@ -405,26 +491,47 @@ const AcervoMateriais = ({ produtoId, onUpdate }: AcervoMateriaisProps) => {
 
         {/* Materiais Selecionados */}
         {materiaisVinculados.length > 0 && (
-          <div className="space-y-2 pt-2 border-t">
-            <Label className="text-sm font-medium">Materiais Selecionados</Label>
-            <div className="space-y-1">
+          <div className="space-y-2 pt-3 border-t">
+            <Label className="text-sm font-medium">
+              Materiais no Produto ({materiaisVinculados.length})
+            </Label>
+            <div className="space-y-2">
               {materiaisVinculados.map((vinculo) => (
                 <div
                   key={vinculo.id}
-                  className="flex items-center justify-between p-2 bg-primary/5 border border-primary/20 rounded-md"
+                  className="flex items-center gap-3 p-2 bg-primary/5 border border-primary/20 rounded-lg"
                 >
+                  {/* Mini imagem */}
+                  <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center shrink-0 overflow-hidden">
+                    {vinculo.material?.image_url ? (
+                      <img 
+                        src={vinculo.material.image_url} 
+                        alt={vinculo.material.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Image className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </div>
+                  
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">
                       {vinculo.material?.name || 'Material não encontrado'}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {vinculo.material?.supplier_name || 'Fornecedor desconhecido'}
-                    </p>
+                    <div className="flex gap-1 items-center">
+                      <Badge variant="outline" className="text-xs">
+                        {getCategoriaNome(vinculo.material?.categoria_id || null)}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        • {vinculo.material?.supplier_name || 'Fornecedor'}
+                      </span>
+                    </div>
                   </div>
+                  
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="shrink-0 h-7 w-7 p-0"
+                    className="shrink-0 h-7 w-7 p-0 hover:bg-destructive/10"
                     onClick={() => handleDesvincularMaterial(vinculo.id)}
                   >
                     <Trash2 className="w-4 h-4 text-destructive" />
