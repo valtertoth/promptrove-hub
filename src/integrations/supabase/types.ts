@@ -74,6 +74,36 @@ export type Database = {
         }
         Relationships: []
       }
+      categorias_material: {
+        Row: {
+          ativo: boolean | null
+          created_at: string | null
+          descricao: string | null
+          id: string
+          nome: string
+          ordem: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          nome: string
+          ordem?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          nome?: string
+          ordem?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       commercial_connections: {
         Row: {
           application_data: Json | null
@@ -492,6 +522,7 @@ export type Database = {
       }
       materials: {
         Row: {
+          categoria_id: string | null
           created_at: string
           description: string | null
           id: string
@@ -504,6 +535,7 @@ export type Database = {
           type: string
         }
         Insert: {
+          categoria_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -516,6 +548,7 @@ export type Database = {
           type: string
         }
         Update: {
+          categoria_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -527,7 +560,15 @@ export type Database = {
           supplier_name?: string | null
           type?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "materials_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias_material"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notificacoes: {
         Row: {
@@ -929,6 +970,57 @@ export type Database = {
             columns: ["tipo_produto_id"]
             isOneToOne: false
             referencedRelation: "tipos_produto"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sugestoes_categoria_material: {
+        Row: {
+          created_at: string | null
+          descricao: string | null
+          fabrica_id: string | null
+          fornecedor_id: string | null
+          id: string
+          mensagem_admin: string | null
+          nome_sugerido: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          descricao?: string | null
+          fabrica_id?: string | null
+          fornecedor_id?: string | null
+          id?: string
+          mensagem_admin?: string | null
+          nome_sugerido: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          descricao?: string | null
+          fabrica_id?: string | null
+          fornecedor_id?: string | null
+          id?: string
+          mensagem_admin?: string | null
+          nome_sugerido?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sugestoes_categoria_material_fabrica_id_fkey"
+            columns: ["fabrica_id"]
+            isOneToOne: false
+            referencedRelation: "fabrica"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sugestoes_categoria_material_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedor"
             referencedColumns: ["id"]
           },
         ]

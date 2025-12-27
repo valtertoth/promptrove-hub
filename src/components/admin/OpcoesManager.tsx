@@ -30,8 +30,22 @@ interface Ambiente {
 }
 
 interface CategoriaMaterial {
-  tipo: string;
-  count: number;
+  id: string;
+  nome: string;
+  descricao: string | null;
+  ativo: boolean;
+  ordem: number;
+}
+
+interface SugestaoCategoriaMaterial {
+  id: string;
+  nome_sugerido: string;
+  descricao: string | null;
+  status: string | null;
+  mensagem_admin: string | null;
+  created_at: string | null;
+  fabrica: { nome: string } | null;
+  fornecedor: { nome: string } | null;
 }
 
 interface SugestaoTipo {
@@ -66,17 +80,25 @@ export default function OpcoesManager() {
   const [categoriasMaterial, setCategoriasMaterial] = useState<CategoriaMaterial[]>([]);
   const [sugestoesTipo, setSugestoesTipo] = useState<SugestaoTipo[]>([]);
   const [sugestoesCampo, setSugestoesCampo] = useState<SugestaoCampo[]>([]);
+  const [sugestoesCategoriaMaterial, setSugestoesCategoriaMaterial] = useState<SugestaoCategoriaMaterial[]>([]);
   
-  // Estados para edição
+  // Estados para edição - Tipos
   const [isCreateTipoOpen, setIsCreateTipoOpen] = useState(false);
   const [isEditTipoOpen, setIsEditTipoOpen] = useState(false);
   const [editingTipo, setEditingTipo] = useState<TipoProduto | null>(null);
   const [newTipo, setNewTipo] = useState({ nome: '', descricao: '' });
   
+  // Estados para edição - Ambientes
   const [isCreateAmbienteOpen, setIsCreateAmbienteOpen] = useState(false);
   const [isEditAmbienteOpen, setIsEditAmbienteOpen] = useState(false);
   const [editingAmbiente, setEditingAmbiente] = useState<Ambiente | null>(null);
   const [newAmbiente, setNewAmbiente] = useState({ nome: '', descricao: '' });
+
+  // Estados para edição - Categorias de Material
+  const [isCreateCategoriaOpen, setIsCreateCategoriaOpen] = useState(false);
+  const [isEditCategoriaOpen, setIsEditCategoriaOpen] = useState(false);
+  const [editingCategoria, setEditingCategoria] = useState<CategoriaMaterial | null>(null);
+  const [newCategoria, setNewCategoria] = useState({ nome: '', descricao: '' });
   
   // Mensagens para sugestões
   const [mensagensAdmin, setMensagensAdmin] = useState<Record<string, string>>({});
@@ -88,27 +110,21 @@ export default function OpcoesManager() {
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      const [tiposRes, ambientesRes, materiaisRes, sugestoesTipoRes, sugestoesCampoRes] = await Promise.all([
+      const [tiposRes, ambientesRes, categoriasRes, sugestoesTipoRes, sugestoesCampoRes, sugestoesCategoriaRes] = await Promise.all([
         supabase.from('tipos_produto').select('*').order('ordem'),
         supabase.from('ambientes').select('*').order('ordem'),
-        supabase.from('materials').select('type'),
+        supabase.from('categorias_material').select('*').order('ordem'),
         supabase.from('sugestoes_tipo_produto').select('*, fabrica:fabrica_id(nome)').order('created_at', { ascending: false }),
         supabase.from('sugestoes_campo_produto').select('*, fabrica:fabrica_id(nome), tipos_produto:tipo_produto_id(nome)').order('created_at', { ascending: false }),
+        supabase.from('sugestoes_categoria_material').select('*, fabrica:fabrica_id(nome), fornecedor:fornecedor_id(nome)').order('created_at', { ascending: false }),
       ]);
 
       if (tiposRes.data) setTiposProduto(tiposRes.data);
       if (ambientesRes.data) setAmbientes(ambientesRes.data);
+      if (categoriasRes.data) setCategoriasMaterial(categoriasRes.data);
       if (sugestoesTipoRes.data) setSugestoesTipo(sugestoesTipoRes.data);
       if (sugestoesCampoRes.data) setSugestoesCampo(sugestoesCampoRes.data);
-      
-      // Agrupar categorias de materiais
-      if (materiaisRes.data) {
-        const counts: Record<string, number> = {};
-        materiaisRes.data.forEach((m: any) => {
-          counts[m.type] = (counts[m.type] || 0) + 1;
-        });
-        setCategoriasMaterial(Object.entries(counts).map(([tipo, count]) => ({ tipo, count })));
-      }
+      if (sugestoesCategoriaRes.data) setSugestoesCategoriaMaterial(sugestoesCategoriaRes.data);
     } catch (error: any) {
       console.error('Error fetching data:', error);
       toast({ title: 'Erro', description: 'Não foi possível carregar os dados.', variant: 'destructive' });
@@ -356,10 +372,123 @@ export default function OpcoesManager() {
 
   const sugestoesTipoPendentes = sugestoesTipo.filter(s => s.status === 'pendente' || !s.status);
   const sugestoesCampoPendentes = sugestoesCampo.filter(s => s.status === 'pendente' || !s.status);
-  const totalPendentes = sugestoesTipoPendentes.length + sugestoesCampoPendentes.length;
+  const sugestoesCategoriaPendentes = sugestoesCategoriaMaterial.filter(s => s.status === 'pendente' || !s.status);
+  const totalPendentes = sugestoesTipoPendentes.length + sugestoesCampoPendentes.length + sugestoesCategoriaPendentes.length;
 
-  // Tipos de materiais do enum
-  const tiposMaterialEnum = ['tecido', 'corda', 'aluminio', 'madeira', 'ferro', 'lamina', 'acabamento', 'outro'];
+  // === CATEGORIAS DE MATERIAL ===
+  const handleCreateCategoria = async () => {
+    if (!newCategoria.nome.trim()) {
+      toast({ title: 'Campo obrigatório', description: 'Informe o nome da categoria.', variant: 'destructive' });
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const maxOrdem = categoriasMaterial.length > 0 ? Math.max(...categoriasMaterial.map(c => c.ordem || 0)) : 0;
+      const { error } = await supabase.from('categorias_material').insert({
+        nome: newCategoria.nome,
+        descricao: newCategoria.descricao || null,
+        ativo: true,
+        ordem: maxOrdem + 1,
+      });
+      if (error) throw error;
+      toast({ title: 'Categoria criada', description: `"${newCategoria.nome}" foi adicionada.` });
+      setNewCategoria({ nome: '', descricao: '' });
+      setIsCreateCategoriaOpen(false);
+      fetchAllData();
+    } catch (error: any) {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleUpdateCategoria = async () => {
+    if (!editingCategoria) return;
+    setActionLoading(true);
+    try {
+      const { error } = await supabase.from('categorias_material').update({
+        nome: editingCategoria.nome,
+        descricao: editingCategoria.descricao,
+        ativo: editingCategoria.ativo,
+      }).eq('id', editingCategoria.id);
+      if (error) throw error;
+      toast({ title: 'Categoria atualizada' });
+      setIsEditCategoriaOpen(false);
+      setEditingCategoria(null);
+      fetchAllData();
+    } catch (error: any) {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDeleteCategoria = async (id: string) => {
+    if (!confirm('Excluir esta categoria? Materiais existentes podem ser afetados.')) return;
+    try {
+      const { error } = await supabase.from('categorias_material').delete().eq('id', id);
+      if (error) throw error;
+      toast({ title: 'Categoria excluída' });
+      fetchAllData();
+    } catch (error: any) {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleToggleCategoriaAtiva = async (categoria: CategoriaMaterial) => {
+    try {
+      const { error } = await supabase.from('categorias_material').update({ ativo: !categoria.ativo }).eq('id', categoria.id);
+      if (error) throw error;
+      fetchAllData();
+    } catch (error: any) {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  // === SUGESTÕES DE CATEGORIA DE MATERIAL ===
+  const aprovarCategoriaMaterial = async (sugestao: SugestaoCategoriaMaterial) => {
+    setActionLoading(true);
+    try {
+      const maxOrdem = categoriasMaterial.length > 0 ? Math.max(...categoriasMaterial.map(c => c.ordem || 0)) : 0;
+      const { error: insertError } = await supabase.from('categorias_material').insert({
+        nome: sugestao.nome_sugerido,
+        descricao: sugestao.descricao,
+        ativo: true,
+        ordem: maxOrdem + 1,
+      });
+      if (insertError) throw insertError;
+
+      const { error: updateError } = await supabase.from('sugestoes_categoria_material').update({
+        status: 'aprovado',
+        mensagem_admin: mensagensAdmin[sugestao.id] || 'Sugestão aprovada e categoria criada.',
+      }).eq('id', sugestao.id);
+      if (updateError) throw updateError;
+
+      toast({ title: 'Aprovado', description: `"${sugestao.nome_sugerido}" foi adicionada.` });
+      fetchAllData();
+    } catch (error: any) {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const rejeitarCategoriaMaterial = async (sugestao: SugestaoCategoriaMaterial) => {
+    setActionLoading(true);
+    try {
+      const { error } = await supabase.from('sugestoes_categoria_material').update({
+        status: 'rejeitado',
+        mensagem_admin: mensagensAdmin[sugestao.id] || 'Sugestão rejeitada.',
+      }).eq('id', sugestao.id);
+      if (error) throw error;
+      toast({ title: 'Rejeitado', description: 'O usuário será notificado.' });
+      fetchAllData();
+    } catch (error: any) {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -388,7 +517,7 @@ export default function OpcoesManager() {
             <Home className="mr-2 h-4 w-4" /> Ambientes ({ambientes.length})
           </TabsTrigger>
           <TabsTrigger value="materiais" className="rounded-full px-4 data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
-            <Palette className="mr-2 h-4 w-4" /> Tipos de Material ({tiposMaterialEnum.length})
+            <Palette className="mr-2 h-4 w-4" /> Tipos de Material ({categoriasMaterial.length})
           </TabsTrigger>
           <TabsTrigger value="sugestoes" className="rounded-full px-4 data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
             <Clock className="mr-2 h-4 w-4" /> Sugestões Pendentes ({totalPendentes})
@@ -637,35 +766,125 @@ export default function OpcoesManager() {
         <TabsContent value="materiais" className="space-y-4">
           <div className="flex justify-between items-center">
             <p className="text-sm text-muted-foreground">
-              Categorias de materiais disponíveis para os fornecedores (definidas no sistema)
+              Categorias de materiais disponíveis para os fornecedores (ex: Tecido, Madeira, Alumínio)
             </p>
+            <Dialog open={isCreateCategoriaOpen} onOpenChange={setIsCreateCategoriaOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-indigo-600 hover:bg-indigo-700 rounded-xl">
+                  <Plus className="mr-2 h-4 w-4" /> Nova Categoria
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="rounded-2xl">
+                <DialogHeader>
+                  <DialogTitle>Nova Categoria de Material</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Nome *</Label>
+                    <Input 
+                      value={newCategoria.nome} 
+                      onChange={(e) => setNewCategoria({ ...newCategoria, nome: e.target.value })} 
+                      placeholder="Ex: Couro, Vidro, Aço Inox..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Descrição (opcional)</Label>
+                    <Textarea 
+                      value={newCategoria.descricao} 
+                      onChange={(e) => setNewCategoria({ ...newCategoria, descricao: e.target.value })} 
+                      placeholder="Descreva esta categoria..."
+                      rows={2}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleCreateCategoria} disabled={actionLoading} className="bg-indigo-600 w-full rounded-xl">
+                    {actionLoading ? <Loader2 className="animate-spin" /> : 'Criar Categoria'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
 
-          <Card className="rounded-2xl border-none shadow-sm bg-white p-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {tiposMaterialEnum.map((tipo) => {
-                const categoria = categoriasMaterial.find(c => c.tipo === tipo);
-                return (
-                  <div key={tipo} className="p-4 border rounded-xl bg-secondary/10 hover:bg-secondary/20 transition-colors">
-                    <div className="font-medium capitalize">{tipo}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {categoria?.count || 0} materiais cadastrados
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <p className="text-xs text-muted-foreground mt-4 text-center">
-              Os tipos de materiais são definidos no sistema e não podem ser editados aqui. 
-              Para adicionar novos tipos, entre em contato com o suporte técnico.
-            </p>
+          <Card className="rounded-2xl border-none shadow-sm bg-white overflow-hidden">
+            <Table>
+              <TableHeader className="bg-secondary/20">
+                <TableRow>
+                  <TableHead className="w-10"></TableHead>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Descrição</TableHead>
+                  <TableHead className="text-center">Status</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {categoriasMaterial.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                      Nenhuma categoria de material cadastrada.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  categoriasMaterial.map((categoria) => (
+                    <TableRow key={categoria.id} className={!categoria.ativo ? 'opacity-50' : ''}>
+                      <TableCell><GripVertical className="h-4 w-4 text-muted-foreground" /></TableCell>
+                      <TableCell className="font-medium">{categoria.nome}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm max-w-xs truncate">{categoria.descricao || '---'}</TableCell>
+                      <TableCell className="text-center">
+                        <Switch checked={categoria.ativo} onCheckedChange={() => handleToggleCategoriaAtiva(categoria)} />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex gap-2 justify-end">
+                          <Button variant="ghost" size="icon" className="text-indigo-600 hover:bg-indigo-50 rounded-lg" onClick={() => { setEditingCategoria(categoria); setIsEditCategoriaOpen(true); }}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 rounded-lg" onClick={() => handleDeleteCategoria(categoria.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </Card>
+
+          {/* Dialog Editar Categoria */}
+          <Dialog open={isEditCategoriaOpen} onOpenChange={setIsEditCategoriaOpen}>
+            <DialogContent className="rounded-2xl">
+              <DialogHeader>
+                <DialogTitle>Editar Categoria de Material</DialogTitle>
+              </DialogHeader>
+              {editingCategoria && (
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Nome *</Label>
+                    <Input value={editingCategoria.nome} onChange={(e) => setEditingCategoria({ ...editingCategoria, nome: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Descrição</Label>
+                    <Textarea value={editingCategoria.descricao || ''} onChange={(e) => setEditingCategoria({ ...editingCategoria, descricao: e.target.value })} rows={2} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch checked={editingCategoria.ativo} onCheckedChange={(checked) => setEditingCategoria({ ...editingCategoria, ativo: checked })} />
+                    <Label>Ativo</Label>
+                  </div>
+                </div>
+              )}
+              <DialogFooter>
+                <Button onClick={handleUpdateCategoria} disabled={actionLoading} className="bg-indigo-600 w-full rounded-xl">
+                  {actionLoading ? <Loader2 className="animate-spin" /> : 'Salvar Alterações'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* === ABA SUGESTÕES PENDENTES === */}
         <TabsContent value="sugestoes" className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Sugestões enviadas pelos fabricantes aguardando aprovação
+            Sugestões enviadas pelos fabricantes e fornecedores aguardando aprovação
           </p>
 
           {totalPendentes === 0 ? (
@@ -679,88 +898,141 @@ export default function OpcoesManager() {
           ) : (
             <Tabs defaultValue="tipos-sug">
               <TabsList>
-                <TabsTrigger value="tipos-sug">Categorias ({sugestoesTipoPendentes.length})</TabsTrigger>
+                <TabsTrigger value="tipos-sug">Categorias de Produto ({sugestoesTipoPendentes.length})</TabsTrigger>
                 <TabsTrigger value="campos-sug">Campos/Ambientes ({sugestoesCampoPendentes.length})</TabsTrigger>
+                <TabsTrigger value="materiais-sug">Categorias de Material ({sugestoesCategoriaPendentes.length})</TabsTrigger>
               </TabsList>
 
               <TabsContent value="tipos-sug" className="space-y-4 mt-4">
-                {sugestoesTipoPendentes.map((sugestao) => (
-                  <Card key={sugestao.id} className="rounded-xl">
-                    <CardHeader>
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle className="text-lg">{sugestao.nome_sugerido}</CardTitle>
-                          <CardDescription>
-                            Sugerido por: {sugestao.fabrica?.nome || 'N/A'} • {sugestao.created_at ? new Date(sugestao.created_at).toLocaleDateString() : ''}
-                          </CardDescription>
+                {sugestoesTipoPendentes.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">Nenhuma sugestão de categoria de produto pendente.</p>
+                ) : (
+                  sugestoesTipoPendentes.map((sugestao) => (
+                    <Card key={sugestao.id} className="rounded-xl">
+                      <CardHeader>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <CardTitle className="text-lg">{sugestao.nome_sugerido}</CardTitle>
+                            <CardDescription>
+                              Sugerido por: {sugestao.fabrica?.nome || 'N/A'} • {sugestao.created_at ? new Date(sugestao.created_at).toLocaleDateString() : ''}
+                            </CardDescription>
+                          </div>
+                          {getStatusBadge(sugestao.status)}
                         </div>
-                        {getStatusBadge(sugestao.status)}
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {sugestao.descricao && (
-                        <p className="text-sm text-muted-foreground bg-secondary/20 p-3 rounded-lg">{sugestao.descricao}</p>
-                      )}
-                      <div className="space-y-2">
-                        <Label>Mensagem para a fábrica (opcional)</Label>
-                        <Textarea
-                          placeholder="Adicione uma mensagem..."
-                          value={mensagensAdmin[sugestao.id] || ''}
-                          onChange={(e) => setMensagensAdmin({ ...mensagensAdmin, [sugestao.id]: e.target.value })}
-                          rows={2}
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button onClick={() => aprovarTipo(sugestao)} disabled={actionLoading} className="flex-1 bg-green-600 hover:bg-green-700">
-                          <CheckCircle className="w-4 h-4 mr-2" /> Aprovar
-                        </Button>
-                        <Button onClick={() => rejeitarTipo(sugestao)} disabled={actionLoading} variant="destructive" className="flex-1">
-                          <XCircle className="w-4 h-4 mr-2" /> Rejeitar
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {sugestao.descricao && (
+                          <p className="text-sm text-muted-foreground bg-secondary/20 p-3 rounded-lg">{sugestao.descricao}</p>
+                        )}
+                        <div className="space-y-2">
+                          <Label>Mensagem para a fábrica (opcional)</Label>
+                          <Textarea
+                            placeholder="Adicione uma mensagem..."
+                            value={mensagensAdmin[sugestao.id] || ''}
+                            onChange={(e) => setMensagensAdmin({ ...mensagensAdmin, [sugestao.id]: e.target.value })}
+                            rows={2}
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button onClick={() => aprovarTipo(sugestao)} disabled={actionLoading} className="flex-1 bg-green-600 hover:bg-green-700">
+                            <CheckCircle className="w-4 h-4 mr-2" /> Aprovar
+                          </Button>
+                          <Button onClick={() => rejeitarTipo(sugestao)} disabled={actionLoading} variant="destructive" className="flex-1">
+                            <XCircle className="w-4 h-4 mr-2" /> Rejeitar
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
               </TabsContent>
 
               <TabsContent value="campos-sug" className="space-y-4 mt-4">
-                {sugestoesCampoPendentes.map((sugestao) => (
-                  <Card key={sugestao.id} className="rounded-xl">
-                    <CardHeader>
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle className="text-lg">{sugestao.valor_sugerido}</CardTitle>
-                          <CardDescription>
-                            Campo: {sugestao.nome_campo} | Tipo: {sugestao.tipos_produto?.nome || 'N/A'} | Por: {sugestao.fabrica?.nome || 'N/A'}
-                          </CardDescription>
+                {sugestoesCampoPendentes.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">Nenhuma sugestão de campo/ambiente pendente.</p>
+                ) : (
+                  sugestoesCampoPendentes.map((sugestao) => (
+                    <Card key={sugestao.id} className="rounded-xl">
+                      <CardHeader>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <CardTitle className="text-lg">{sugestao.valor_sugerido}</CardTitle>
+                            <CardDescription>
+                              Campo: {sugestao.nome_campo} | Tipo: {sugestao.tipos_produto?.nome || 'N/A'} | Por: {sugestao.fabrica?.nome || 'N/A'}
+                            </CardDescription>
+                          </div>
+                          {getStatusBadge(sugestao.status)}
                         </div>
-                        {getStatusBadge(sugestao.status)}
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {sugestao.descricao && (
-                        <p className="text-sm text-muted-foreground bg-secondary/20 p-3 rounded-lg">{sugestao.descricao}</p>
-                      )}
-                      <div className="space-y-2">
-                        <Label>Mensagem para a fábrica (opcional)</Label>
-                        <Textarea
-                          placeholder="Adicione uma mensagem..."
-                          value={mensagensAdmin[sugestao.id] || ''}
-                          onChange={(e) => setMensagensAdmin({ ...mensagensAdmin, [sugestao.id]: e.target.value })}
-                          rows={2}
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button onClick={() => aprovarCampo(sugestao)} disabled={actionLoading} className="flex-1 bg-green-600 hover:bg-green-700">
-                          <CheckCircle className="w-4 h-4 mr-2" /> Aprovar
-                        </Button>
-                        <Button onClick={() => rejeitarCampo(sugestao)} disabled={actionLoading} variant="destructive" className="flex-1">
-                          <XCircle className="w-4 h-4 mr-2" /> Rejeitar
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {sugestao.descricao && (
+                          <p className="text-sm text-muted-foreground bg-secondary/20 p-3 rounded-lg">{sugestao.descricao}</p>
+                        )}
+                        <div className="space-y-2">
+                          <Label>Mensagem para a fábrica (opcional)</Label>
+                          <Textarea
+                            placeholder="Adicione uma mensagem..."
+                            value={mensagensAdmin[sugestao.id] || ''}
+                            onChange={(e) => setMensagensAdmin({ ...mensagensAdmin, [sugestao.id]: e.target.value })}
+                            rows={2}
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button onClick={() => aprovarCampo(sugestao)} disabled={actionLoading} className="flex-1 bg-green-600 hover:bg-green-700">
+                            <CheckCircle className="w-4 h-4 mr-2" /> Aprovar
+                          </Button>
+                          <Button onClick={() => rejeitarCampo(sugestao)} disabled={actionLoading} variant="destructive" className="flex-1">
+                            <XCircle className="w-4 h-4 mr-2" /> Rejeitar
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </TabsContent>
+
+              <TabsContent value="materiais-sug" className="space-y-4 mt-4">
+                {sugestoesCategoriaPendentes.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">Nenhuma sugestão de categoria de material pendente.</p>
+                ) : (
+                  sugestoesCategoriaPendentes.map((sugestao) => (
+                    <Card key={sugestao.id} className="rounded-xl">
+                      <CardHeader>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <CardTitle className="text-lg">{sugestao.nome_sugerido}</CardTitle>
+                            <CardDescription>
+                              Sugerido por: {sugestao.fabrica?.nome || sugestao.fornecedor?.nome || 'N/A'} • {sugestao.created_at ? new Date(sugestao.created_at).toLocaleDateString() : ''}
+                            </CardDescription>
+                          </div>
+                          {getStatusBadge(sugestao.status)}
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {sugestao.descricao && (
+                          <p className="text-sm text-muted-foreground bg-secondary/20 p-3 rounded-lg">{sugestao.descricao}</p>
+                        )}
+                        <div className="space-y-2">
+                          <Label>Mensagem para o usuário (opcional)</Label>
+                          <Textarea
+                            placeholder="Adicione uma mensagem..."
+                            value={mensagensAdmin[sugestao.id] || ''}
+                            onChange={(e) => setMensagensAdmin({ ...mensagensAdmin, [sugestao.id]: e.target.value })}
+                            rows={2}
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button onClick={() => aprovarCategoriaMaterial(sugestao)} disabled={actionLoading} className="flex-1 bg-green-600 hover:bg-green-700">
+                            <CheckCircle className="w-4 h-4 mr-2" /> Aprovar
+                          </Button>
+                          <Button onClick={() => rejeitarCategoriaMaterial(sugestao)} disabled={actionLoading} variant="destructive" className="flex-1">
+                            <XCircle className="w-4 h-4 mr-2" /> Rejeitar
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
               </TabsContent>
             </Tabs>
           )}
