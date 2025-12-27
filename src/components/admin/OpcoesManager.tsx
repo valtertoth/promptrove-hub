@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Loader2, GripVertical, CheckCircle, XCircle, Clock, Package, Home, Palette } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, GripVertical, CheckCircle, XCircle, Clock, Package, Home, Palette, Image as ImageIcon } from "lucide-react";
+import MateriaisAdmin from "./MateriaisAdmin";
 
 interface TipoProduto {
   id: string;
@@ -519,6 +520,9 @@ export default function OpcoesManager() {
           <TabsTrigger value="materiais" className="rounded-full px-4 data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
             <Palette className="mr-2 h-4 w-4" /> Tipos de Material ({categoriasMaterial.length})
           </TabsTrigger>
+          <TabsTrigger value="acervo-materiais" className="rounded-full px-4 data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
+            <ImageIcon className="mr-2 h-4 w-4" /> Acervo de Materiais
+          </TabsTrigger>
           <TabsTrigger value="sugestoes" className="rounded-full px-4 data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
             <Clock className="mr-2 h-4 w-4" /> Sugestões Pendentes ({totalPendentes})
           </TabsTrigger>
@@ -879,6 +883,11 @@ export default function OpcoesManager() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+        </TabsContent>
+
+        {/* === ABA ACERVO DE MATERIAIS === */}
+        <TabsContent value="acervo-materiais" className="space-y-4">
+          <MateriaisAdmin />
         </TabsContent>
 
         {/* === ABA SUGESTÕES PENDENTES === */}
