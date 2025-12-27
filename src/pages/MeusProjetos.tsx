@@ -120,7 +120,7 @@ const MeusProjetos = () => {
             quantidade,
             ambiente,
             created_at,
-            produto:produto_id (
+            produto:produtos!fk_itens_projeto_produto (
               id,
               nome,
               tipo_produto,
