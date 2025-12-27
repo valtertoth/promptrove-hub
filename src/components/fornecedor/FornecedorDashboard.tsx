@@ -48,6 +48,7 @@ import {
 interface FornecedorDashboardProps {
   userId: string;
 }
+
 interface Material {
   id: string;
   name: string;
@@ -56,6 +57,12 @@ interface Material {
   sku_supplier: string;
   image_url: string | null;
   is_active: boolean;
+  categoria_id: string | null;
+}
+
+interface Categoria {
+  id: string;
+  nome: string;
 }
 
 const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
@@ -63,6 +70,9 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [materials, setMaterials] = useState<Material[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [fornecedorId, setFornecedorId] = useState<string | null>(null);
+  const [fornecedorNome, setFornecedorNome] = useState<string>("");
   const [activeTab, setActiveTab] = useState("catalog");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -72,17 +82,47 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
     description: "",
     sku_supplier: "",
     image_url: "",
+    categoria_id: "",
   });
 
   useEffect(() => {
-    fetchMaterials();
+    fetchFornecedor();
+    fetchCategorias();
   }, []);
 
+  useEffect(() => {
+    if (fornecedorId) {
+      fetchMaterials();
+    }
+  }, [fornecedorId]);
+
+  const fetchFornecedor = async () => {
+    const { data } = await supabase
+      .from("fornecedor")
+      .select("id, nome")
+      .eq("user_id", userId)
+      .single();
+    if (data) {
+      setFornecedorId(data.id);
+      setFornecedorNome(data.nome);
+    }
+  };
+
+  const fetchCategorias = async () => {
+    const { data } = await supabase
+      .from("categorias_material")
+      .select("id, nome")
+      .eq("ativo", true)
+      .order("ordem");
+    if (data) setCategorias(data);
+  };
+
   const fetchMaterials = async () => {
+    if (!fornecedorId) return;
     const { data } = await supabase
       .from("materials")
       .select("*")
-      .eq("supplier_id", userId)
+      .eq("supplier_id", fornecedorId)
       .eq("is_active", true)
       .order("created_at", { ascending: false });
     if (data) setMaterials(data);
@@ -106,24 +146,26 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
   };
 
   const handleSaveMaterial = async () => {
-    if (!newMaterial.name || !newMaterial.type) {
+    if (!newMaterial.name || !newMaterial.type || !fornecedorId) {
       toast({ title: "Erro", description: "Dados incompletos.", variant: "destructive" });
       return;
     }
     setLoading(true);
     const payload = {
-      supplier_id: userId,
+      supplier_id: fornecedorId,
+      supplier_name: fornecedorNome,
       name: newMaterial.name,
       type: newMaterial.type,
       sku_supplier: newMaterial.sku_supplier,
       description: newMaterial.description,
       image_url: newMaterial.image_url,
+      categoria_id: newMaterial.categoria_id || null,
       is_active: true,
     };
     if (editingId) await supabase.from("materials").update(payload).eq("id", editingId);
     else await supabase.from("materials").insert(payload);
     toast({ title: "Salvo com sucesso", className: "bg-[#103927] text-white" });
-    setNewMaterial({ name: "", type: "", description: "", sku_supplier: "", image_url: "" });
+    setNewMaterial({ name: "", type: "", description: "", sku_supplier: "", image_url: "", categoria_id: "" });
     setEditingId(null);
     fetchMaterials();
     setActiveTab("catalog");
@@ -138,7 +180,14 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
 
   const handleEditClick = (m: Material) => {
     setEditingId(m.id);
-    setNewMaterial({ ...m, image_url: m.image_url || "" });
+    setNewMaterial({ 
+      name: m.name,
+      type: m.type,
+      description: m.description || "",
+      sku_supplier: m.sku_supplier || "",
+      image_url: m.image_url || "",
+      categoria_id: m.categoria_id || ""
+    });
     setActiveTab("new-material");
   };
   const filteredMaterials = materials.filter((m) => m.name.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -288,7 +337,7 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
                       variant="ghost"
                       onClick={() => {
                         setEditingId(null);
-                        setNewMaterial({ name: "", type: "", description: "", sku_supplier: "", image_url: "" });
+                        setNewMaterial({ name: "", type: "", description: "", sku_supplier: "", image_url: "", categoria_id: "" });
                         setActiveTab("catalog");
                       }}
                       className="rounded-full"
@@ -311,30 +360,25 @@ const FornecedorDashboard = ({ userId }: FornecedorDashboardProps) => {
                     <div className="space-y-2">
                       <Label className="uppercase text-xs tracking-wider text-muted-foreground">Categoria</Label>
                       <Select
-                        value={newMaterial.type}
-                        onValueChange={(val) => setNewMaterial({ ...newMaterial, type: val })}
+                        value={newMaterial.categoria_id}
+                        onValueChange={(val) => {
+                          const cat = categorias.find(c => c.id === val);
+                          setNewMaterial({ 
+                            ...newMaterial, 
+                            categoria_id: val,
+                            type: cat?.nome || newMaterial.type
+                          });
+                        }}
                       >
                         <SelectTrigger className="h-14 rounded-2xl bg-secondary/10 border-0">
-                          <SelectValue />
+                          <SelectValue placeholder="Selecione uma categoria" />
                         </SelectTrigger>
                         <SelectContent className="rounded-xl">
-                          <SelectGroup>
-                            <SelectLabel>Naturais</SelectLabel>
-                            <SelectItem value="Madeira Maciça">Madeira Maciça</SelectItem>
-                            <SelectItem value="Lâmina Natural">Lâmina Natural</SelectItem>
-                            <SelectItem value="Pedra Natural">Pedra Natural</SelectItem>
-                          </SelectGroup>
-                          <SelectGroup>
-                            <SelectLabel>Tecidos</SelectLabel>
-                            <SelectItem value="Linho">Linho</SelectItem>
-                            <SelectItem value="Couro Natural">Couro Natural</SelectItem>
-                            <SelectItem value="Veludo">Veludo</SelectItem>
-                          </SelectGroup>
-                          <SelectGroup>
-                            <SelectLabel>Metais</SelectLabel>
-                            <SelectItem value="Aço Carbono">Aço Carbono</SelectItem>
-                            <SelectItem value="Latão">Latão</SelectItem>
-                          </SelectGroup>
+                          {categorias.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>
+                              {cat.nome}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
