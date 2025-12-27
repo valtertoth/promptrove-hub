@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Users, Package, Search, Trash2, LogOut, ShieldAlert, Plus, Loader2, Pencil, Settings, Factory, Truck, UserCheck } from "lucide-react";
+import { Users, Package, Search, Trash2, LogOut, ShieldAlert, Plus, Loader2, Pencil, Settings, Factory, Truck, UserCheck, ListChecks } from "lucide-react";
+import OpcoesManager from "./OpcoesManager";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -414,7 +415,7 @@ const AdminDashboard = () => {
       </div>
 
       <Tabs defaultValue="users" className="space-y-6">
-        <TabsList className="bg-white/50 backdrop-blur-sm p-1 rounded-full border border-border shadow-sm inline-flex">
+        <TabsList className="bg-white/50 backdrop-blur-sm p-1 rounded-full border border-border shadow-sm inline-flex flex-wrap gap-1">
           <TabsTrigger
             value="users"
             className="rounded-full px-6 data-[state=active]:bg-indigo-600 data-[state=active]:text-white"
@@ -426,6 +427,12 @@ const AdminDashboard = () => {
             className="rounded-full px-6 data-[state=active]:bg-indigo-600 data-[state=active]:text-white"
           >
             <Package className="mr-2 h-4 w-4" /> Produtos
+          </TabsTrigger>
+          <TabsTrigger
+            value="opcoes"
+            className="rounded-full px-6 data-[state=active]:bg-indigo-600 data-[state=active]:text-white"
+          >
+            <ListChecks className="mr-2 h-4 w-4" /> Opções do Sistema
           </TabsTrigger>
         </TabsList>
 
@@ -642,6 +649,11 @@ const AdminDashboard = () => {
               </TableBody>
             </Table>
           </Card>
+        </TabsContent>
+
+        {/* ABA OPÇÕES DO SISTEMA */}
+        <TabsContent value="opcoes">
+          <OpcoesManager />
         </TabsContent>
       </Tabs>
     </div>
