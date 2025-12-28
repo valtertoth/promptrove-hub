@@ -21,10 +21,24 @@ import {
   Loader2,
   PackageSearch,
   ChevronRight,
+  FolderOpen,
+  FileText,
+  Trash2,
+  Package,
+  User,
+  Calendar,
+  Handshake,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import VitrineFilters from "./VitrineFilters";
 import CredenciamentoForm, { CredenciamentoData } from "./CredenciamentoForm";
+import EspecificarDialog from "./EspecificarDialog";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 interface EspecificadorDashboardProps {
   userId: string;
@@ -82,6 +96,17 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
   const [categorias, setCategorias] = useState<string[]>([]);
   const [ambientes, setAmbientes] = useState<string[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
+
+  // Modal de especificação
+  const [isSpecifyOpen, setIsSpecifyOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<{ id: string; nome: string } | null>(null);
+
+  // Projetos
+  const [projetos, setProjetos] = useState<any[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+
+  // Conexões aprovadas para Comissões
+  const [approvedConnections, setApprovedConnections] = useState<any[]>([]);
 
   // Modal de credenciamento
   const [isApplicationOpen, setIsApplicationOpen] = useState(false);
@@ -197,6 +222,113 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
       console.error("Erro ao carregar dados:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Função para buscar projetos
+  const fetchProjects = async () => {
+    if (!especificadorId) return;
+    setProjectsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("projetos")
+        .select(`
+          *,
+          itens:itens_projeto (
+            id,
+            quantidade,
+            ambiente,
+            created_at,
+            produto:produto_id (
+              id,
+              nome,
+              tipo_produto,
+              fabrica:fabrica_id (nome)
+            )
+          )
+        `)
+        .eq("especificador_id", especificadorId)
+        .order("updated_at", { ascending: false });
+
+      if (error) throw error;
+      setProjetos(data || []);
+    } catch (error) {
+      console.error("Erro ao buscar projetos:", error);
+    } finally {
+      setProjectsLoading(false);
+    }
+  };
+
+  // Função para buscar conexões aprovadas
+  const fetchApprovedConnections = async () => {
+    if (!especificadorId) return;
+    try {
+      const { data, error } = await supabase
+        .from("commercial_connections")
+        .select(`
+          *,
+          fabrica:factory_id (
+            id,
+            nome,
+            logo_url,
+            cidade,
+            estado
+          )
+        `)
+        .eq("specifier_id", especificadorId)
+        .eq("status", "approved");
+
+      if (error) throw error;
+      setApprovedConnections(data || []);
+    } catch (error) {
+      console.error("Erro ao buscar conexões:", error);
+    }
+  };
+
+  // Carregar projetos quando especificadorId estiver disponível
+  useEffect(() => {
+    if (especificadorId) {
+      fetchProjects();
+      fetchApprovedConnections();
+    }
+  }, [especificadorId]);
+
+  // Handler para abrir dialog de especificar
+  const handleOpenSpecify = (product: Product) => {
+    setSelectedProduct({ id: product.id, nome: product.nome });
+    setIsSpecifyOpen(true);
+  };
+
+  // Handler para fechar dialog e atualizar projetos
+  const handleSpecifyClose = (open: boolean) => {
+    setIsSpecifyOpen(open);
+    if (!open) {
+      fetchProjects();
+    }
+  };
+
+  // Handler para deletar item do projeto
+  const handleDeleteItem = async (itemId: string) => {
+    try {
+      const { error } = await supabase.from("itens_projeto").delete().eq("id", itemId);
+      if (error) throw error;
+      toast({ title: "Item removido" });
+      fetchProjects();
+    } catch (error: any) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    }
+  };
+
+  // Handler para deletar projeto
+  const handleDeleteProject = async (projetoId: string, nome: string) => {
+    if (!confirm(`Excluir o projeto "${nome}" e todos os itens?`)) return;
+    try {
+      const { error } = await supabase.from("projetos").delete().eq("id", projetoId);
+      if (error) throw error;
+      toast({ title: "Projeto excluído" });
+      fetchProjects();
+    } catch (error: any) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
     }
   };
 
@@ -494,7 +626,7 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
                         {status === "approved" ? (
                           <Button
                             className="w-full h-14 rounded-2xl bg-[#1C1917] hover:bg-black text-white shadow-lg transition-all group-hover:scale-105"
-                            onClick={() => toast({ title: "Adicionado ao projeto" })}
+                            onClick={() => handleOpenSpecify(product)}
                           >
                             Especificar <ChevronRight className="ml-2 h-4 w-4" />
                           </Button>
@@ -522,11 +654,171 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
           )}
         </TabsContent>
 
-        <TabsContent value="projects" className="text-center py-32 opacity-50">
-          Área de Projetos em construção.
+        <TabsContent value="projects">
+          {projectsLoading ? (
+            <div className="flex justify-center py-32">
+              <Loader2 className="h-12 w-12 animate-spin text-[#103927]" />
+            </div>
+          ) : projetos.length === 0 ? (
+            <div className="text-center py-32 bg-white/50 rounded-[3rem] border border-dashed">
+              <FolderOpen className="h-16 w-16 mx-auto text-muted-foreground opacity-30 mb-6" />
+              <h3 className="text-2xl font-serif text-foreground">Nenhum projeto ainda</h3>
+              <p className="text-muted-foreground mt-2">
+                Especifique produtos na Vitrine para criar projetos
+              </p>
+            </div>
+          ) : (
+            <Accordion type="single" collapsible className="space-y-4">
+              {projetos.map((projeto) => (
+                <AccordionItem
+                  key={projeto.id}
+                  value={projeto.id}
+                  className="border rounded-xl bg-white px-6"
+                >
+                  <AccordionTrigger className="hover:no-underline py-4">
+                    <div className="flex items-center justify-between w-full mr-4">
+                      <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                          <FileText className="h-6 w-6 text-[#103927]" />
+                        </div>
+                        <div className="text-left">
+                          <h3 className="font-semibold text-lg">{projeto.nome_projeto}</h3>
+                          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                            {projeto.cliente && (
+                              <span className="flex items-center gap-1">
+                                <User className="h-3 w-3" />
+                                {projeto.cliente}
+                              </span>
+                            )}
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {new Date(projeto.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <Badge variant="secondary" className="ml-4">
+                        {projeto.itens?.length || 0} {(projeto.itens?.length || 0) === 1 ? 'item' : 'itens'}
+                      </Badge>
+                    </div>
+                  </AccordionTrigger>
+
+                  <AccordionContent className="pb-6">
+                    <div className="border-t pt-4 mt-2">
+                      {(!projeto.itens || projeto.itens.length === 0) ? (
+                        <p className="text-center text-muted-foreground py-8">
+                          Nenhum produto neste projeto.
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          {projeto.itens.map((item: any) => (
+                            <div
+                              key={item.id}
+                              className="flex items-center justify-between p-4 bg-muted/30 rounded-lg"
+                            >
+                              <div className="flex items-center gap-4">
+                                <div className="h-10 w-10 rounded bg-background flex items-center justify-center">
+                                  <Package className="h-5 w-5 text-muted-foreground" />
+                                </div>
+                                <div>
+                                  <p className="font-medium">{item.produto?.nome || 'Produto não encontrado'}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {item.produto?.fabrica?.nome || 'Fábrica'}
+                                    {item.ambiente && ` • ${item.ambiente}`}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <Badge variant="outline">Qtd: {item.quantidade}</Badge>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-destructive hover:bg-destructive/10"
+                                  onClick={() => handleDeleteItem(item.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex justify-end items-center mt-6 pt-4 border-t">
+                        <Button
+                          variant="ghost"
+                          className="text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeleteProject(projeto.id, projeto.nome_projeto)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Excluir Projeto
+                        </Button>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          )}
         </TabsContent>
-        <TabsContent value="financial" className="text-center py-32 opacity-50">
-          Área Financeira em construção.
+
+        <TabsContent value="financial">
+          {approvedConnections.length === 0 ? (
+            <div className="text-center py-32 bg-white/50 rounded-[3rem] border border-dashed">
+              <Handshake className="h-16 w-16 mx-auto text-muted-foreground opacity-30 mb-6" />
+              <h3 className="text-2xl font-serif text-foreground">Nenhuma conexão aprovada</h3>
+              <p className="text-muted-foreground mt-2">
+                Solicite acesso a fábricas na Vitrine para ver suas comissões
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {approvedConnections.map((conn) => (
+                <Card key={conn.id} className="rounded-2xl border shadow-sm hover:shadow-md transition-shadow">
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-4 mb-4">
+                      {conn.fabrica?.logo_url ? (
+                        <img src={conn.fabrica.logo_url} alt="" className="w-12 h-12 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-[#103927]/10 flex items-center justify-center">
+                          <Building2 className="w-6 h-6 text-[#103927]" />
+                        </div>
+                      )}
+                      <div>
+                        <h3 className="font-semibold">{conn.fabrica?.nome}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {conn.fabrica?.cidade}, {conn.fabrica?.estado}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Status</span>
+                        <Badge className="bg-emerald-500 text-white">Aprovado</Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Comissão</span>
+                        <span className="font-medium">{conn.commission_rate ? `${conn.commission_rate}%` : 'A definir'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Aprovado em</span>
+                        <span>{new Date(conn.updated_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      className="w-full mt-4"
+                      onClick={() => window.location.href = `/relacionamento/${conn.id}`}
+                    >
+                      Ver Relacionamento
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
@@ -554,6 +846,13 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
           />
         </DialogContent>
       </Dialog>
+
+      {/* MODAL DE ESPECIFICAÇÃO */}
+      <EspecificarDialog
+        open={isSpecifyOpen}
+        onOpenChange={handleSpecifyClose}
+        produto={selectedProduct}
+      />
     </div>
   );
 };
