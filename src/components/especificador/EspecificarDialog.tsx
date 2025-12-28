@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, Plus, FolderOpen } from 'lucide-react';
+import { Loader2, Plus, FolderOpen, Truck } from 'lucide-react';
 
 interface Projeto {
   id: string;
@@ -26,6 +26,11 @@ interface EspecificarDialogProps {
   } | null;
 }
 
+const TIPOS_ENTREGA = [
+  { value: 'transporte_normal', label: 'Transporte Normal', description: 'Transportadora entrega até o Lojista e o Lojista faz a Entrega Local' },
+  { value: 'dropshipping', label: 'Dropshipping', description: 'O Fabricante envia direto para o Consumidor Final com NF do Especificador' },
+];
+
 const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogProps) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -42,12 +47,43 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
   
   // Dados do item
   const [quantidade, setQuantidade] = useState('1');
+  const [tipoEntrega, setTipoEntrega] = useState('transporte_normal');
 
   useEffect(() => {
     if (open && user) {
       fetchEspecificadorAndProjetos();
     }
   }, [open, user]);
+
+  // Gerar próximo número de venda automaticamente
+  const generateNextNumeroVenda = async (especId: string): Promise<string> => {
+    try {
+      const { data, error } = await supabase
+        .from('projetos')
+        .select('nome_projeto')
+        .eq('especificador_id', especId)
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+
+      // Encontrar o maior número
+      let maxNumber = 0;
+      (data || []).forEach(p => {
+        const match = p.nome_projeto.match(/^(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNumber) maxNumber = num;
+        }
+      });
+
+      // Retornar próximo número formatado com zeros à esquerda
+      return String(maxNumber + 1).padStart(6, '0');
+    } catch (error) {
+      console.error('Erro ao gerar número da venda:', error);
+      return String(Date.now()).slice(-6);
+    }
+  };
 
   const fetchEspecificadorAndProjetos = async () => {
     if (!user) return;
@@ -85,6 +121,10 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
       if (projetosError) throw projetosError;
 
       setProjetos(projetosData || []);
+
+      // Gerar próximo número de venda automaticamente
+      const nextNumber = await generateNextNumeroVenda(especData.id);
+      setNovoNomeProjeto(nextNumber);
     } catch (error: any) {
       console.error('Erro ao buscar dados:', error);
       toast({
@@ -137,7 +177,7 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
 
       toast({
         title: 'Produto especificado!',
-        description: `"${produto.nome}" foi adicionado ao projeto "${novoNomeProjeto}".`,
+        description: `"${produto.nome}" foi adicionado à venda "${novoNomeProjeto}".`,
         className: 'bg-emerald-600 text-white',
       });
 
@@ -145,6 +185,7 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
       setNovoNomeProjeto('');
       setNovoCliente('');
       setQuantidade('1');
+      setTipoEntrega('transporte_normal');
       onOpenChange(false);
     } catch (error: any) {
       console.error('Erro ao salvar:', error);
@@ -192,6 +233,7 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
       // Limpar e fechar
       setProjetoSelecionado('');
       setQuantidade('1');
+      setTipoEntrega('transporte_normal');
       onOpenChange(false);
     } catch (error: any) {
       console.error('Erro ao salvar:', error);
@@ -225,14 +267,40 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
               <p className="font-semibold">{produto.nome}</p>
             </div>
 
-            <div className="space-y-2">
-              <Label>Quantidade</Label>
-              <Input
-                type="number"
-                min="1"
-                value={quantidade}
-                onChange={(e) => setQuantidade(e.target.value)}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Quantidade</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={quantidade}
+                  onChange={(e) => setQuantidade(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Truck className="h-4 w-4" />
+                  Tipo de Entrega
+                </Label>
+                <Select value={tipoEntrega} onValueChange={setTipoEntrega}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIPOS_ENTREGA.map((tipo) => (
+                      <SelectItem key={tipo.value} value={tipo.value}>
+                        {tipo.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Info sobre tipo de entrega selecionado */}
+            <div className="bg-muted/30 p-3 rounded-lg text-sm text-muted-foreground">
+              <strong>{TIPOS_ENTREGA.find(t => t.value === tipoEntrega)?.label}:</strong>{' '}
+              {TIPOS_ENTREGA.find(t => t.value === tipoEntrega)?.description}
             </div>
 
             <Tabs defaultValue={projetos.length > 0 ? "existente" : "novo"}>
@@ -285,12 +353,15 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
 
               <TabsContent value="novo" className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label>Número da Venda *</Label>
+                  <Label>Número da Venda</Label>
                   <Input
-                    placeholder="Ex: 001234"
                     value={novoNomeProjeto}
-                    onChange={(e) => setNovoNomeProjeto(e.target.value)}
+                    readOnly
+                    className="bg-muted cursor-not-allowed font-mono"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Gerado automaticamente
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -308,7 +379,7 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
                   className="w-full"
                 >
                   {saving ? <Loader2 className="animate-spin mr-2" /> : null}
-                  Criar Projeto e Adicionar
+                  Criar Venda e Adicionar
                 </Button>
               </TabsContent>
             </Tabs>
