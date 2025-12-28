@@ -1,61 +1,10 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Sparkles, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UploadZone } from "@/components/specifica-ai/UploadZone";
 import { ProductGrid, Product } from "@/components/specifica-ai/ProductGrid";
 import { useNavigate } from "react-router-dom";
-
-// Mock dataset - In production, this would come from Supabase
-const mockProducts: Product[] = [
-  {
-    id: "1",
-    name: "Cadeira Eames",
-    category: "Cadeiras",
-    imageUrl: "https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=500&h=500&fit=crop",
-  },
-  {
-    id: "2",
-    name: "Poltrona Barcelona",
-    category: "Poltronas",
-    imageUrl: "https://images.unsplash.com/photo-1506439773649-6e0eb8cfb237?w=500&h=500&fit=crop",
-  },
-  {
-    id: "3",
-    name: "Mesa de Centro Nórdica",
-    category: "Mesas",
-    imageUrl: "https://images.unsplash.com/photo-1533090481720-856c6e3c1fdc?w=500&h=500&fit=crop",
-  },
-  {
-    id: "4",
-    name: "Sofá Modular",
-    category: "Sofás",
-    imageUrl: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=500&h=500&fit=crop",
-  },
-  {
-    id: "5",
-    name: "Cadeira de Escritório",
-    category: "Cadeiras",
-    imageUrl: "https://images.unsplash.com/photo-1580480055273-228ff5388ef8?w=500&h=500&fit=crop",
-  },
-  {
-    id: "6",
-    name: "Mesa de Jantar",
-    category: "Mesas",
-    imageUrl: "https://images.unsplash.com/photo-1617806118233-18e1de247200?w=500&h=500&fit=crop",
-  },
-  {
-    id: "7",
-    name: "Luminária Arco",
-    category: "Iluminação",
-    imageUrl: "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=500&h=500&fit=crop",
-  },
-  {
-    id: "8",
-    name: "Estante Industrial",
-    category: "Estantes",
-    imageUrl: "https://images.unsplash.com/photo-1594620302200-9a762244a156?w=500&h=500&fit=crop",
-  },
-];
+import { supabase } from "@/integrations/supabase/client";
 
 /**
  * handleImageSearch - Core function for Visual Search
@@ -109,7 +58,51 @@ const SpecificaAi = () => {
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [products, setProducts] = useState<Product[]>(mockProducts);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch real products from Supabase
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('produtos')
+          .select('id, nome, tipo_produto, imagens, descricao')
+          .eq('ativo', true);
+
+        if (error) {
+          console.error('Error fetching products:', error);
+          return;
+        }
+
+        // Map database structure to Product interface
+        const mappedProducts: Product[] = (data || []).map(produto => {
+          // Get first image from imagens array
+          const imagens = produto.imagens as string[] | null;
+          const imageUrl = imagens && imagens.length > 0 
+            ? imagens[0] 
+            : 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=500&h=500&fit=crop';
+
+          return {
+            id: produto.id,
+            name: produto.nome,
+            category: produto.tipo_produto || 'Móvel',
+            imageUrl
+          };
+        });
+
+        setProducts(mappedProducts);
+        setAllProducts(mappedProducts);
+      } catch (error) {
+        console.error('Error:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
 
   const handleImageUpload = useCallback(async (file: File) => {
     // Create preview URL
@@ -120,7 +113,7 @@ const SpecificaAi = () => {
 
     try {
       // Perform visual search
-      const results = await handleImageSearch(file, mockProducts);
+      const results = await handleImageSearch(file, allProducts);
       setProducts(results);
       setHasSearched(true);
     } catch (error) {
@@ -128,14 +121,14 @@ const SpecificaAi = () => {
     } finally {
       setIsScanning(false);
     }
-  }, []);
+  }, [allProducts]);
 
   const handleReset = useCallback(() => {
     setUploadedImage(null);
     setIsScanning(false);
     setHasSearched(false);
-    setProducts(mockProducts);
-  }, []);
+    setProducts(allProducts);
+  }, [allProducts]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -210,7 +203,21 @@ const SpecificaAi = () => {
       {/* Product Grid Section */}
       <section className="py-16">
         <div className="container mx-auto px-4">
-          <ProductGrid products={products} hasSearched={hasSearched} />
+          {isLoading ? (
+            <div className="text-center py-12">
+              <div className="w-8 h-8 border-2 border-ai-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-muted-foreground">Carregando produtos...</p>
+            </div>
+          ) : products.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground text-lg">Nenhum produto cadastrado ainda.</p>
+              <p className="text-muted-foreground text-sm mt-2">
+                A busca visual funcionará melhor quando houver mais produtos no catálogo.
+              </p>
+            </div>
+          ) : (
+            <ProductGrid products={products} hasSearched={hasSearched} />
+          )}
         </div>
       </section>
 
