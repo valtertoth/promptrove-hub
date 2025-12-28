@@ -34,10 +34,14 @@ export interface CredenciamentoData {
   regioes: string[];
   instagram?: string;
   site?: string;
-  endereco?: string;
-  cidade?: string;
-  estado?: string;
-  cep?: string;
+  // Endereço completo (obrigatório para todos)
+  cep: string;
+  logradouro: string;
+  numero: string;
+  complemento?: string;
+  bairro: string;
+  cidade: string;
+  estado: string;
   sobre?: string;
 }
 
@@ -62,12 +66,16 @@ const CredenciamentoForm = ({ onSubmit, onCancel, loading }: CredenciamentoFormP
     regioes: [],
     instagram: "",
     site: "",
-    endereco: "",
+    cep: "",
+    logradouro: "",
+    numero: "",
+    complemento: "",
+    bairro: "",
     cidade: "",
     estado: "",
-    cep: "",
     sobre: "",
   });
+  const [buscandoCep, setBuscandoCep] = useState(false);
 
   const [documentoErro, setDocumentoErro] = useState<string>("");
   const [documentoValido, setDocumentoValido] = useState<boolean>(false);
@@ -135,14 +143,64 @@ const CredenciamentoForm = ({ onSubmit, onCancel, loading }: CredenciamentoFormP
     onSubmit(formData);
   };
 
-  const showEnderecoFields = formData.perfil === "lojista" || formData.perfil === "distribuidor";
   const showDropshippingFields = formData.logistica.includes("dropshipping");
+
+  // Validação de endereço completo para todos os perfis
+  const isEnderecoValido = 
+    formData.cep.length >= 8 &&
+    formData.logradouro.trim() !== "" &&
+    formData.numero.trim() !== "" &&
+    formData.bairro.trim() !== "" &&
+    formData.cidade.trim() !== "" &&
+    formData.estado.trim() !== "";
 
   const isFormValid = 
     formData.perfil && 
     documentoValido && 
     formData.logistica.length > 0 && 
-    formData.regioes.length > 0;
+    formData.regioes.length > 0 &&
+    isEnderecoValido;
+
+  // Busca automática de endereço por CEP
+  const buscarCep = async (cep: string) => {
+    const cepLimpo = cep.replace(/\D/g, '');
+    if (cepLimpo.length !== 8) return;
+    
+    setBuscandoCep(true);
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+      const data = await response.json();
+      
+      if (!data.erro) {
+        setFormData(prev => ({
+          ...prev,
+          logradouro: data.logradouro || prev.logradouro,
+          bairro: data.bairro || prev.bairro,
+          cidade: data.localidade || prev.cidade,
+          estado: data.uf || prev.estado,
+        }));
+      }
+    } catch (error) {
+      console.error("Erro ao buscar CEP:", error);
+    } finally {
+      setBuscandoCep(false);
+    }
+  };
+
+  const formatarCep = (value: string) => {
+    const numeros = value.replace(/\D/g, '');
+    if (numeros.length <= 5) return numeros;
+    return `${numeros.slice(0, 5)}-${numeros.slice(5, 8)}`;
+  };
+
+  const handleCepChange = (value: string) => {
+    const formatted = formatarCep(value);
+    setFormData({ ...formData, cep: formatted });
+    
+    if (value.replace(/\D/g, '').length === 8) {
+      buscarCep(value);
+    }
+  };
 
   return (
     <div className="space-y-6 p-6 overflow-y-auto max-h-[70vh]">
@@ -333,68 +391,110 @@ const CredenciamentoForm = ({ onSubmit, onCancel, loading }: CredenciamentoFormP
         </div>
       </div>
 
-      {/* Endereço (apenas para Lojista e Distribuidor) */}
-      {showEnderecoFields && (
-        <div className="p-4 bg-white rounded-2xl border border-border/50 space-y-4">
-          <Label className="flex items-center gap-2 text-base font-medium">
-            <MapPin className="w-4 h-4 text-muted-foreground" />
-            Endereço da {formData.perfil === "lojista" ? "Loja" : "Sede"} *
-          </Label>
-          <p className="text-sm text-muted-foreground">
-            Precisamos verificar se realmente existe o estabelecimento informado.
-          </p>
+      {/* Endereço Completo - Obrigatório para todos */}
+      <div className="p-4 bg-white rounded-2xl border border-border/50 space-y-4">
+        <Label className="flex items-center gap-2 text-base font-medium">
+          <MapPin className="w-4 h-4 text-muted-foreground" />
+          Endereço Físico Completo *
+        </Label>
+        <p className="text-sm text-muted-foreground">
+          {formData.perfil === "lojista" 
+            ? "Informe o endereço da sua Loja Física para verificação."
+            : formData.perfil === "distribuidor"
+            ? "Informe o endereço do seu Centro de Distribuição."
+            : "Informe o endereço do seu escritório ou local de trabalho."}
+        </p>
 
-          <div className="space-y-4">
+        <div className="space-y-4">
+          {/* CEP com busca automática */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-2">
-              <Label>Endereço Completo</Label>
-              <Input
-                className="bg-gray-50 rounded-xl"
-                placeholder="Rua, número, complemento"
-                value={formData.endereco || ""}
-                onChange={(e) => setFormData({ ...formData, endereco: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="space-y-2">
-                <Label>CEP</Label>
+              <Label>CEP *</Label>
+              <div className="relative">
                 <Input
                   className="bg-gray-50 rounded-xl"
                   placeholder="00000-000"
-                  value={formData.cep || ""}
-                  onChange={(e) => setFormData({ ...formData, cep: e.target.value })}
+                  value={formData.cep}
+                  onChange={(e) => handleCepChange(e.target.value)}
+                  maxLength={9}
                 />
+                {buscandoCep && (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                )}
               </div>
-              <div className="space-y-2 col-span-2 md:col-span-2">
-                <Label>Cidade</Label>
-                <Input
-                  className="bg-gray-50 rounded-xl"
-                  placeholder="Cidade"
-                  value={formData.cidade || ""}
-                  onChange={(e) => setFormData({ ...formData, cidade: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Estado</Label>
-                <Select
-                  value={formData.estado || ""}
-                  onValueChange={(v) => setFormData({ ...formData, estado: v })}
-                >
-                  <SelectTrigger className="bg-gray-50 rounded-xl">
-                    <SelectValue placeholder="UF" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ESTADOS_BRASIL.map((estado) => (
-                      <SelectItem key={estado} value={estado}>
-                        {estado}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            </div>
+            <div className="space-y-2 md:col-span-3">
+              <Label>Logradouro (Rua, Avenida, etc.) *</Label>
+              <Input
+                className="bg-gray-50 rounded-xl"
+                placeholder="Rua das Flores"
+                value={formData.logradouro}
+                onChange={(e) => setFormData({ ...formData, logradouro: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <Label>Número *</Label>
+              <Input
+                className="bg-gray-50 rounded-xl"
+                placeholder="123"
+                value={formData.numero}
+                onChange={(e) => setFormData({ ...formData, numero: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Complemento</Label>
+              <Input
+                className="bg-gray-50 rounded-xl"
+                placeholder="Sala 101"
+                value={formData.complemento || ""}
+                onChange={(e) => setFormData({ ...formData, complemento: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Bairro *</Label>
+              <Input
+                className="bg-gray-50 rounded-xl"
+                placeholder="Centro"
+                value={formData.bairro}
+                onChange={(e) => setFormData({ ...formData, bairro: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="space-y-2 md:col-span-3">
+              <Label>Cidade *</Label>
+              <Input
+                className="bg-gray-50 rounded-xl"
+                placeholder="São Paulo"
+                value={formData.cidade}
+                onChange={(e) => setFormData({ ...formData, cidade: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Estado *</Label>
+              <Select
+                value={formData.estado}
+                onValueChange={(v) => setFormData({ ...formData, estado: v })}
+              >
+                <SelectTrigger className="bg-gray-50 rounded-xl">
+                  <SelectValue placeholder="UF" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ESTADOS_BRASIL.map((estado) => (
+                    <SelectItem key={estado} value={estado}>
+                      {estado}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Sobre */}
       <div className="space-y-2">
