@@ -42,7 +42,6 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
   
   // Dados do item
   const [quantidade, setQuantidade] = useState('1');
-  const [ambiente, setAmbiente] = useState('');
 
   useEffect(() => {
     if (open && user) {
@@ -132,7 +131,6 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
           projeto_id: novoProjeto.id,
           produto_id: produto.id,
           quantidade: parseInt(quantidade) || 1,
-          ambiente: ambiente.trim() || null,
         });
 
       if (itemError) throw itemError;
@@ -147,7 +145,6 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
       setNovoNomeProjeto('');
       setNovoCliente('');
       setQuantidade('1');
-      setAmbiente('');
       onOpenChange(false);
     } catch (error: any) {
       console.error('Erro ao salvar:', error);
@@ -180,7 +177,6 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
           projeto_id: projetoSelecionado,
           produto_id: produto.id,
           quantidade: parseInt(quantidade) || 1,
-          ambiente: ambiente.trim() || null,
         });
 
       if (itemError) throw itemError;
@@ -196,7 +192,6 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
       // Limpar e fechar
       setProjetoSelecionado('');
       setQuantidade('1');
-      setAmbiente('');
       onOpenChange(false);
     } catch (error: any) {
       console.error('Erro ao salvar:', error);
@@ -230,24 +225,14 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
               <p className="font-semibold">{produto.nome}</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Quantidade</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={quantidade}
-                  onChange={(e) => setQuantidade(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Ambiente (opcional)</Label>
-                <Input
-                  placeholder="Ex: Sala de estar"
-                  value={ambiente}
-                  onChange={(e) => setAmbiente(e.target.value)}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label>Quantidade</Label>
+              <Input
+                type="number"
+                min="1"
+                value={quantidade}
+                onChange={(e) => setQuantidade(e.target.value)}
+              />
             </div>
 
             <Tabs defaultValue={projetos.length > 0 ? "existente" : "novo"}>
@@ -256,9 +241,9 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
                   <FolderOpen className="mr-2 h-4 w-4" />
                   Projeto Existente
                 </TabsTrigger>
-                <TabsTrigger value="novo">
+              <TabsTrigger value="novo">
                   <Plus className="mr-2 h-4 w-4" />
-                  Novo Projeto
+                  Nova Venda
                 </TabsTrigger>
               </TabsList>
 
@@ -300,9 +285,9 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
 
               <TabsContent value="novo" className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label>Nome do Projeto *</Label>
+                  <Label>Número da Venda *</Label>
                   <Input
-                    placeholder="Ex: Apartamento Centro"
+                    placeholder="Ex: 001234"
                     value={novoNomeProjeto}
                     onChange={(e) => setNovoNomeProjeto(e.target.value)}
                   />
