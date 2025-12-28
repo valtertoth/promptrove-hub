@@ -267,19 +267,32 @@ const ConexoesComerciais = ({ fabricaId }: ConexoesComerciaisProps) => {
                             Ver Detalhes
                           </Button>
 
-                          {/* Botão de gerenciar cidades para conexões aprovadas */}
-                          {conexao.status === "approved" && conexao.application_data?.regioes?.length > 0 && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setConexaoParaCidades(conexao);
-                                setCidadesDialogOpen(true);
-                              }}
-                            >
-                              <Settings2 className="h-4 w-4 mr-1" />
-                              Gerenciar Cidades
-                            </Button>
+                          {/* Botões para conexões aprovadas */}
+                          {conexao.status === "approved" && (
+                            <>
+                              <Button
+                                variant="default"
+                                size="sm"
+                                className="bg-[#103927] hover:bg-[#103927]/90"
+                                onClick={() => window.location.href = `/relacionamento/${conexao.id}`}
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                Ver Relacionamento
+                              </Button>
+                              {conexao.application_data?.regioes?.length > 0 && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setConexaoParaCidades(conexao);
+                                    setCidadesDialogOpen(true);
+                                  }}
+                                >
+                                  <Settings2 className="h-4 w-4 mr-1" />
+                                  Gerenciar Cidades
+                                </Button>
+                              )}
+                            </>
                           )}
 
                           {conexao.status === "pending" && (
