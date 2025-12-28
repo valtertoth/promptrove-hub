@@ -13,6 +13,7 @@ import Dev from "./pages/Dev";
 import NotFound from "./pages/NotFound";
 import AdminDashboard from "./components/admin/AdminDashboard";
 import Relacionamento from "./pages/Relacionamento";
+import SpecificaAi from "./pages/SpecificaAi";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/catalogo" element={<Catalogo />} />
           <Route path="/meus-projetos" element={<MeusProjetos />} />
           <Route path="/relacionamento/:connectionId" element={<Relacionamento />} />
+          <Route path="/specifica-ai" element={<SpecificaAi />} />
 
           {/* ROTA DO MODO DEUS (Corrigida: Sem userId) */}
           <Route path="/admin" element={<AdminDashboard />} />
