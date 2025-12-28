@@ -1,0 +1,374 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Building2,
+  Truck,
+  Map,
+  Instagram,
+  Globe,
+  MapPin,
+  FileText,
+  Loader2,
+} from "lucide-react";
+
+export interface CredenciamentoData {
+  perfil: string;
+  documento_tipo: string;
+  documento: string;
+  logistica: string[];
+  transportadora_nome?: string;
+  transportadora_cnpj?: string;
+  regioes: string[];
+  instagram?: string;
+  site?: string;
+  endereco?: string;
+  cidade?: string;
+  estado?: string;
+  cep?: string;
+  sobre?: string;
+}
+
+interface CredenciamentoFormProps {
+  onSubmit: (data: CredenciamentoData) => Promise<void>;
+  onCancel: () => void;
+  loading: boolean;
+}
+
+const ESTADOS_BRASIL = [
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
+  "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
+  "RS", "RO", "RR", "SC", "SP", "SE", "TO"
+];
+
+const CredenciamentoForm = ({ onSubmit, onCancel, loading }: CredenciamentoFormProps) => {
+  const [formData, setFormData] = useState<CredenciamentoData>({
+    perfil: "",
+    documento_tipo: "cnpj",
+    documento: "",
+    logistica: [],
+    regioes: [],
+    instagram: "",
+    site: "",
+    endereco: "",
+    cidade: "",
+    estado: "",
+    cep: "",
+    sobre: "",
+  });
+
+  const handleLogisticaChange = (value: string, checked: boolean) => {
+    if (checked) {
+      setFormData({ ...formData, logistica: [...formData.logistica, value] });
+    } else {
+      setFormData({
+        ...formData,
+        logistica: formData.logistica.filter((l) => l !== value),
+        // Limpa campos de transportadora se dropshipping for desmarcado
+        ...(value === "dropshipping" ? { transportadora_nome: "", transportadora_cnpj: "" } : {}),
+      });
+    }
+  };
+
+  const handleRegiaoChange = (value: string, checked: boolean) => {
+    if (checked) {
+      setFormData({ ...formData, regioes: [...formData.regioes, value] });
+    } else {
+      setFormData({ ...formData, regioes: formData.regioes.filter((r) => r !== value) });
+    }
+  };
+
+  const handleSubmit = () => {
+    onSubmit(formData);
+  };
+
+  const showEnderecoFields = formData.perfil === "lojista" || formData.perfil === "distribuidor";
+  const showDropshippingFields = formData.logistica.includes("dropshipping");
+
+  return (
+    <div className="space-y-6 p-6 overflow-y-auto max-h-[70vh]">
+      {/* Perfil e Documento */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-muted-foreground" />
+            Perfil *
+          </Label>
+          <Select
+            value={formData.perfil}
+            onValueChange={(v) => setFormData({ ...formData, perfil: v })}
+          >
+            <SelectTrigger className="bg-white rounded-xl">
+              <SelectValue placeholder="Selecione seu perfil..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="lojista">Lojista (Loja Física)</SelectItem>
+              <SelectItem value="distribuidor">Distribuidor (Centro de Distribuição)</SelectItem>
+              <SelectItem value="especificador">Arquiteto ou Designer (Especificador)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2">
+            <FileText className="w-4 h-4 text-muted-foreground" />
+            Documento *
+          </Label>
+          <div className="flex gap-2">
+            <Select
+              value={formData.documento_tipo}
+              onValueChange={(v) => setFormData({ ...formData, documento_tipo: v })}
+            >
+              <SelectTrigger className="w-28 bg-white rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cpf">CPF</SelectItem>
+                <SelectItem value="cnpj">CNPJ</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input
+              className="flex-1 bg-white rounded-xl"
+              placeholder={formData.documento_tipo === "cpf" ? "000.000.000-00" : "00.000.000/0000-00"}
+              value={formData.documento}
+              onChange={(e) => setFormData({ ...formData, documento: e.target.value })}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Logística/Entrega */}
+      <div className="p-4 bg-white rounded-2xl border border-border/50 space-y-4">
+        <Label className="flex items-center gap-2 text-base font-medium">
+          <Truck className="w-4 h-4 text-muted-foreground" />
+          Logística / Entrega (Como você Revende?) *
+        </Label>
+        <p className="text-sm text-muted-foreground">Selecione todas as opções que se aplicam:</p>
+
+        <div className="space-y-3">
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="entrega_propria"
+              checked={formData.logistica.includes("entrega_propria")}
+              onCheckedChange={(checked) => handleLogisticaChange("entrega_propria", !!checked)}
+            />
+            <div className="space-y-1">
+              <label htmlFor="entrega_propria" className="font-medium cursor-pointer">
+                Entrega Própria (Transporte Próprio)
+              </label>
+              <p className="text-sm text-muted-foreground">
+                O Fabricante envia para sua Loja/Centro de Distribuição e você se encarrega da entrega ao cliente.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="dropshipping"
+              checked={formData.logistica.includes("dropshipping")}
+              onCheckedChange={(checked) => handleLogisticaChange("dropshipping", !!checked)}
+            />
+            <div className="space-y-1">
+              <label htmlFor="dropshipping" className="font-medium cursor-pointer">
+                Dropshipping (Transportadora)
+              </label>
+              <p className="text-sm text-muted-foreground">
+                O Fabricante envia direto para o cliente final através de uma Transportadora indicada.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Campos de transportadora (se dropshipping selecionado) */}
+        {showDropshippingFields && (
+          <div className="mt-4 p-4 bg-muted/50 rounded-xl space-y-4 border-l-4 border-primary">
+            <p className="text-sm font-medium">Dados da Transportadora:</p>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Nome da Transportadora</Label>
+                <Input
+                  className="bg-white rounded-xl"
+                  placeholder="Nome da transportadora"
+                  value={formData.transportadora_nome || ""}
+                  onChange={(e) => setFormData({ ...formData, transportadora_nome: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>CNPJ da Transportadora</Label>
+                <Input
+                  className="bg-white rounded-xl"
+                  placeholder="00.000.000/0000-00"
+                  value={formData.transportadora_cnpj || ""}
+                  onChange={(e) => setFormData({ ...formData, transportadora_cnpj: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Regiões de Atuação */}
+      <div className="space-y-3">
+        <Label className="flex items-center gap-2">
+          <Map className="w-4 h-4 text-muted-foreground" />
+          Regiões de Atuação *
+        </Label>
+        <p className="text-sm text-muted-foreground">Selecione os estados onde você atua:</p>
+        <div className="grid grid-cols-6 md:grid-cols-9 gap-2 p-4 bg-white rounded-xl border">
+          {ESTADOS_BRASIL.map((estado) => (
+            <div key={estado} className="flex items-center gap-1">
+              <Checkbox
+                id={`estado-${estado}`}
+                checked={formData.regioes.includes(estado)}
+                onCheckedChange={(checked) => handleRegiaoChange(estado, !!checked)}
+              />
+              <label htmlFor={`estado-${estado}`} className="text-sm cursor-pointer">
+                {estado}
+              </label>
+            </div>
+          ))}
+        </div>
+        {formData.regioes.length > 0 && (
+          <p className="text-sm text-primary">
+            Selecionado: {formData.regioes.join(", ")}
+          </p>
+        )}
+      </div>
+
+      {/* Redes Sociais */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2">
+            <Instagram className="w-4 h-4 text-muted-foreground" />
+            Instagram
+          </Label>
+          <Input
+            className="bg-white rounded-xl"
+            placeholder="@seu.perfil"
+            value={formData.instagram || ""}
+            onChange={(e) => setFormData({ ...formData, instagram: e.target.value })}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2">
+            <Globe className="w-4 h-4 text-muted-foreground" />
+            Site
+          </Label>
+          <Input
+            className="bg-white rounded-xl"
+            placeholder="https://seusite.com.br"
+            value={formData.site || ""}
+            onChange={(e) => setFormData({ ...formData, site: e.target.value })}
+          />
+        </div>
+      </div>
+
+      {/* Endereço (apenas para Lojista e Distribuidor) */}
+      {showEnderecoFields && (
+        <div className="p-4 bg-white rounded-2xl border border-border/50 space-y-4">
+          <Label className="flex items-center gap-2 text-base font-medium">
+            <MapPin className="w-4 h-4 text-muted-foreground" />
+            Endereço da {formData.perfil === "lojista" ? "Loja" : "Sede"} *
+          </Label>
+          <p className="text-sm text-muted-foreground">
+            Precisamos verificar se realmente existe o estabelecimento informado.
+          </p>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Endereço Completo</Label>
+              <Input
+                className="bg-gray-50 rounded-xl"
+                placeholder="Rua, número, complemento"
+                value={formData.endereco || ""}
+                onChange={(e) => setFormData({ ...formData, endereco: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label>CEP</Label>
+                <Input
+                  className="bg-gray-50 rounded-xl"
+                  placeholder="00000-000"
+                  value={formData.cep || ""}
+                  onChange={(e) => setFormData({ ...formData, cep: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2 col-span-2 md:col-span-2">
+                <Label>Cidade</Label>
+                <Input
+                  className="bg-gray-50 rounded-xl"
+                  placeholder="Cidade"
+                  value={formData.cidade || ""}
+                  onChange={(e) => setFormData({ ...formData, cidade: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Estado</Label>
+                <Select
+                  value={formData.estado || ""}
+                  onValueChange={(v) => setFormData({ ...formData, estado: v })}
+                >
+                  <SelectTrigger className="bg-gray-50 rounded-xl">
+                    <SelectValue placeholder="UF" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ESTADOS_BRASIL.map((estado) => (
+                      <SelectItem key={estado} value={estado}>
+                        {estado}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sobre */}
+      <div className="space-y-2">
+        <Label>Sobre sua Empresa (opcional)</Label>
+        <Textarea
+          className="bg-white rounded-xl min-h-[100px]"
+          placeholder="Conte um pouco sobre sua empresa, experiência no mercado, diferenciais..."
+          value={formData.sobre || ""}
+          onChange={(e) => setFormData({ ...formData, sobre: e.target.value })}
+        />
+      </div>
+
+      {/* Botões */}
+      <div className="flex justify-end gap-3 pt-4 border-t">
+        <Button variant="ghost" onClick={onCancel} className="rounded-xl h-12 px-6">
+          Cancelar
+        </Button>
+        <Button
+          onClick={handleSubmit}
+          disabled={loading || !formData.perfil || !formData.documento || formData.logistica.length === 0 || formData.regioes.length === 0}
+          className="rounded-xl h-12 px-8 bg-[#103927] hover:bg-[#103927]/90"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Enviando...
+            </>
+          ) : (
+            "Enviar Proposta"
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+export default CredenciamentoForm;
