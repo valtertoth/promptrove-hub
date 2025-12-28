@@ -14,6 +14,65 @@ export type Database = {
   }
   public: {
     Tables: {
+      acordos_comissao: {
+        Row: {
+          connection_id: string
+          created_at: string | null
+          data_resposta: string | null
+          data_solicitacao: string
+          data_vigencia_fim: string | null
+          data_vigencia_inicio: string | null
+          id: string
+          observacoes_especificador: string | null
+          observacoes_fabricante: string | null
+          percentual_aprovado: number | null
+          percentual_solicitado: number
+          solicitado_por: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          connection_id: string
+          created_at?: string | null
+          data_resposta?: string | null
+          data_solicitacao?: string
+          data_vigencia_fim?: string | null
+          data_vigencia_inicio?: string | null
+          id?: string
+          observacoes_especificador?: string | null
+          observacoes_fabricante?: string | null
+          percentual_aprovado?: number | null
+          percentual_solicitado: number
+          solicitado_por?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          connection_id?: string
+          created_at?: string | null
+          data_resposta?: string | null
+          data_solicitacao?: string
+          data_vigencia_fim?: string | null
+          data_vigencia_inicio?: string | null
+          id?: string
+          observacoes_especificador?: string | null
+          observacoes_fabricante?: string | null
+          percentual_aprovado?: number | null
+          percentual_solicitado?: number
+          solicitado_por?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "acordos_comissao_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ambientes: {
         Row: {
           ativo: boolean | null
@@ -471,6 +530,67 @@ export type Database = {
         }
         Relationships: []
       }
+      itens_pedido: {
+        Row: {
+          created_at: string | null
+          id: string
+          observacoes: string | null
+          pedido_id: string
+          personalizacoes: Json | null
+          preco_total: number
+          preco_unitario: number
+          produto_id: string
+          quantidade: number
+          variacao_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          observacoes?: string | null
+          pedido_id: string
+          personalizacoes?: Json | null
+          preco_total: number
+          preco_unitario: number
+          produto_id: string
+          quantidade?: number
+          variacao_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          observacoes?: string | null
+          pedido_id?: string
+          personalizacoes?: Json | null
+          preco_total?: number
+          preco_unitario?: number
+          produto_id?: string
+          quantidade?: number
+          variacao_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "itens_pedido_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "itens_pedido_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "itens_pedido_variacao_id_fkey"
+            columns: ["variacao_id"]
+            isOneToOne: false
+            referencedRelation: "variacoes_produto"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       itens_projeto: {
         Row: {
           ambiente: string | null
@@ -608,6 +728,104 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      pedidos: {
+        Row: {
+          cliente_email: string | null
+          cliente_endereco: Json | null
+          cliente_nome: string
+          cliente_telefone: string | null
+          connection_id: string
+          created_at: string | null
+          data_aprovacao: string | null
+          data_entrega: string | null
+          data_envio: string | null
+          data_previsao_entrega: string | null
+          especificador_id: string
+          fabrica_id: string
+          id: string
+          numero_pedido: string
+          observacoes: string | null
+          percentual_comissao: number | null
+          status: string
+          updated_at: string | null
+          valor_comissao: number | null
+          valor_total: number | null
+        }
+        Insert: {
+          cliente_email?: string | null
+          cliente_endereco?: Json | null
+          cliente_nome: string
+          cliente_telefone?: string | null
+          connection_id: string
+          created_at?: string | null
+          data_aprovacao?: string | null
+          data_entrega?: string | null
+          data_envio?: string | null
+          data_previsao_entrega?: string | null
+          especificador_id: string
+          fabrica_id: string
+          id?: string
+          numero_pedido: string
+          observacoes?: string | null
+          percentual_comissao?: number | null
+          status?: string
+          updated_at?: string | null
+          valor_comissao?: number | null
+          valor_total?: number | null
+        }
+        Update: {
+          cliente_email?: string | null
+          cliente_endereco?: Json | null
+          cliente_nome?: string
+          cliente_telefone?: string | null
+          connection_id?: string
+          created_at?: string | null
+          data_aprovacao?: string | null
+          data_entrega?: string | null
+          data_envio?: string | null
+          data_previsao_entrega?: string | null
+          especificador_id?: string
+          fabrica_id?: string
+          id?: string
+          numero_pedido?: string
+          observacoes?: string | null
+          percentual_comissao?: number | null
+          status?: string
+          updated_at?: string | null
+          valor_comissao?: number | null
+          valor_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pedidos_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pedidos_especificador_id_fkey"
+            columns: ["especificador_id"]
+            isOneToOne: false
+            referencedRelation: "especificador"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pedidos_especificador_id_fkey"
+            columns: ["especificador_id"]
+            isOneToOne: false
+            referencedRelation: "especificadores_publicos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pedidos_fabrica_id_fkey"
+            columns: ["fabrica_id"]
+            isOneToOne: false
+            referencedRelation: "fabrica"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       personalizacoes_produto: {
         Row: {
