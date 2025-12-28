@@ -14,6 +14,7 @@ import NotFound from "./pages/NotFound";
 import AdminDashboard from "./components/admin/AdminDashboard";
 import Relacionamento from "./pages/Relacionamento";
 import SpecificaAi from "./pages/SpecificaAi";
+import CentralPedidos from "./pages/CentralPedidos";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/profile" element={<Profile />} />
           <Route path="/catalogo" element={<Catalogo />} />
           <Route path="/meus-projetos" element={<MeusProjetos />} />
+          <Route path="/pedidos" element={<CentralPedidos />} />
           <Route path="/relacionamento/:connectionId" element={<Relacionamento />} />
           <Route path="/specifica-ai" element={<SpecificaAi />} />
 

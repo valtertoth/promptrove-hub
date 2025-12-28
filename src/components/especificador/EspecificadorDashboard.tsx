@@ -474,6 +474,14 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
         </div>
         <div className="flex gap-4">
           <Button
+            onClick={() => (window.location.href = "/pedidos")}
+            variant="default"
+            className="rounded-full"
+          >
+            <Package className="mr-2 h-4 w-4" />
+            Central de Pedidos
+          </Button>
+          <Button
             onClick={() => (window.location.href = "/profile")}
             variant="outline"
             className="rounded-full border-border hover:bg-secondary/50"
