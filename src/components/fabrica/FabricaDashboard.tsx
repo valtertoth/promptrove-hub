@@ -32,8 +32,10 @@ import {
   Instagram,
   MapPin,
   Palette,
+  Handshake,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import ConexoesComerciais from "./ConexoesComerciais";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -435,7 +437,8 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
             value="partners"
             className="rounded-full px-6 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-300"
           >
-            Parceiros
+            <Handshake className="mr-2 h-4 w-4" />
+            Conexões Comerciais
           </TabsTrigger>
           <TabsTrigger
             value="new-product"
@@ -445,100 +448,9 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
           </TabsTrigger>
         </TabsList>
 
-        {/* ABA PARCEIROS COM NEGOCIAÇÃO */}
+        {/* ABA CONEXÕES COMERCIAIS */}
         <TabsContent value="partners">
-          <div className="grid gap-6">
-            <div>
-              <h3 className="text-xl font-serif text-foreground mb-4 flex items-center gap-2">
-                Solicitações Pendentes{" "}
-                <Badge variant="secondary" className="rounded-full">
-                  {connections.filter((c) => c.status === "pending").length}
-                </Badge>
-              </h3>
-              <div className="grid md:grid-cols-2 gap-4">
-                {connections
-                  .filter((c) => c.status === "pending")
-                  .map((conn) => (
-                    <Card key={conn.id} className="rounded-2xl border-none shadow-md bg-white/80 backdrop-blur-sm">
-                      <CardHeader className="pb-3">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <CardTitle className="text-lg font-serif font-medium text-foreground">
-                              {conn.application_data?.type?.toUpperCase() || "ESPECIFICADOR"}
-                            </CardTitle>
-                            <CardDescription className="flex items-center gap-1 mt-1">
-                              <MapPin className="w-3 h-3" /> {conn.application_data?.address}
-                            </CardDescription>
-                          </div>
-                          <Badge variant="outline" className="bg-accent/20 text-accent-foreground border-accent/50">
-                            Novo
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="text-sm text-muted-foreground space-y-3 pb-4">
-                        <div className="flex items-center gap-2">
-                          <Instagram className="w-4 h-4" /> {conn.application_data?.social}
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs bg-secondary/20 p-3 rounded-xl">
-                          <div>
-                            <span className="block font-bold text-foreground">Logística</span>
-                            {conn.application_data?.logistics?.toUpperCase()}
-                          </div>
-                          <div>
-                            <span className="block font-bold text-foreground">Modelo</span>
-                            {conn.application_data?.salesModel?.toUpperCase()}
-                          </div>
-                        </div>
-                        <div className="bg-secondary/30 p-3 rounded-xl text-xs italic border border-border">
-                          "{conn.application_data?.about}"
-                        </div>
-                      </CardContent>
-                      <CardFooter className="gap-3 pt-0">
-                        <Button
-                          onClick={() => openApprovalModal(conn)}
-                          className="flex-1 bg-primary hover:bg-primary/90 rounded-xl"
-                        >
-                          <UserCheck className="mr-2 h-4 w-4" /> Analisar & Aprovar
-                        </Button>
-                        <Button
-                          onClick={() => rejectConnection(conn.id)}
-                          variant="outline"
-                          className="flex-1 border-destructive/30 text-destructive hover:bg-destructive/10 rounded-xl"
-                        >
-                          Recusar
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  ))}
-                {connections.filter((c) => c.status === "pending").length === 0 && (
-                  <div className="col-span-2 py-12 text-center text-muted-foreground border border-dashed rounded-2xl">
-                    Tudo em dia. Nenhuma solicitação pendente.
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="mt-8">
-              <h3 className="text-xl font-serif text-foreground mb-4">Rede Homologada</h3>
-              <div className="grid md:grid-cols-3 gap-4">
-                {connections
-                  .filter((c) => c.status === "approved")
-                  .map((conn) => (
-                    <div
-                      key={conn.id}
-                      className="flex items-center gap-4 p-4 bg-white border border-border rounded-2xl shadow-sm"
-                    >
-                      <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center text-green-700">
-                        <Check className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-foreground">{conn.application_data?.document}</p>
-                        <p className="text-xs text-muted-foreground uppercase">{conn.application_data?.type}</p>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          </div>
+          <ConexoesComerciais fabricaId={userId} />
         </TabsContent>
 
         {/* OUTRAS ABAS (MANTIDAS) */}

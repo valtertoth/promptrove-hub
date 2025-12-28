@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,8 +11,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { validarDocumento, formatarDocumento } from "@/lib/documentValidation";
 import {
   Building2,
+  AlertCircle,
   Truck,
   Map,
   Instagram,
@@ -67,6 +69,37 @@ const CredenciamentoForm = ({ onSubmit, onCancel, loading }: CredenciamentoFormP
     sobre: "",
   });
 
+  const [documentoErro, setDocumentoErro] = useState<string>("");
+  const [documentoValido, setDocumentoValido] = useState<boolean>(false);
+
+  const handleDocumentoChange = (value: string) => {
+    const tipo = formData.documento_tipo as 'cpf' | 'cnpj';
+    const formatted = formatarDocumento(value, tipo);
+    setFormData({ ...formData, documento: formatted });
+
+    // Validar apenas se tiver o tamanho mínimo
+    const digitsOnly = value.replace(/\D/g, '');
+    const expectedLength = tipo === 'cpf' ? 11 : 14;
+
+    if (digitsOnly.length === expectedLength) {
+      const isValid = validarDocumento(digitsOnly, tipo);
+      setDocumentoValido(isValid);
+      setDocumentoErro(isValid ? "" : `${tipo.toUpperCase()} inválido. Verifique os dígitos.`);
+    } else if (digitsOnly.length > 0) {
+      setDocumentoValido(false);
+      setDocumentoErro("");
+    } else {
+      setDocumentoValido(false);
+      setDocumentoErro("");
+    }
+  };
+
+  const handleTipoDocumentoChange = (tipo: string) => {
+    setFormData({ ...formData, documento_tipo: tipo, documento: "" });
+    setDocumentoErro("");
+    setDocumentoValido(false);
+  };
+
   const handleLogisticaChange = (value: string, checked: boolean) => {
     if (checked) {
       setFormData({ ...formData, logistica: [...formData.logistica, value] });
@@ -89,11 +122,27 @@ const CredenciamentoForm = ({ onSubmit, onCancel, loading }: CredenciamentoFormP
   };
 
   const handleSubmit = () => {
+    // Validar documento antes de enviar
+    const tipo = formData.documento_tipo as 'cpf' | 'cnpj';
+    const digitsOnly = formData.documento.replace(/\D/g, '');
+    const expectedLength = tipo === 'cpf' ? 11 : 14;
+
+    if (digitsOnly.length !== expectedLength || !validarDocumento(digitsOnly, tipo)) {
+      setDocumentoErro(`${tipo.toUpperCase()} inválido. Verifique os dígitos.`);
+      return;
+    }
+
     onSubmit(formData);
   };
 
   const showEnderecoFields = formData.perfil === "lojista" || formData.perfil === "distribuidor";
   const showDropshippingFields = formData.logistica.includes("dropshipping");
+
+  const isFormValid = 
+    formData.perfil && 
+    documentoValido && 
+    formData.logistica.length > 0 && 
+    formData.regioes.length > 0;
 
   return (
     <div className="space-y-6 p-6 overflow-y-auto max-h-[70vh]">
@@ -127,7 +176,7 @@ const CredenciamentoForm = ({ onSubmit, onCancel, loading }: CredenciamentoFormP
           <div className="flex gap-2">
             <Select
               value={formData.documento_tipo}
-              onValueChange={(v) => setFormData({ ...formData, documento_tipo: v })}
+              onValueChange={handleTipoDocumentoChange}
             >
               <SelectTrigger className="w-28 bg-white rounded-xl">
                 <SelectValue />
@@ -137,12 +186,23 @@ const CredenciamentoForm = ({ onSubmit, onCancel, loading }: CredenciamentoFormP
                 <SelectItem value="cnpj">CNPJ</SelectItem>
               </SelectContent>
             </Select>
-            <Input
-              className="flex-1 bg-white rounded-xl"
-              placeholder={formData.documento_tipo === "cpf" ? "000.000.000-00" : "00.000.000/0000-00"}
-              value={formData.documento}
-              onChange={(e) => setFormData({ ...formData, documento: e.target.value })}
-            />
+            <div className="flex-1 space-y-1">
+              <Input
+                className={`bg-white rounded-xl ${documentoErro ? 'border-destructive' : documentoValido ? 'border-emerald-500' : ''}`}
+                placeholder={formData.documento_tipo === "cpf" ? "000.000.000-00" : "00.000.000/0000-00"}
+                value={formData.documento}
+                onChange={(e) => handleDocumentoChange(e.target.value)}
+              />
+              {documentoErro && (
+                <p className="text-xs text-destructive flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {documentoErro}
+                </p>
+              )}
+              {documentoValido && (
+                <p className="text-xs text-emerald-600">✓ Documento válido</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -354,7 +414,7 @@ const CredenciamentoForm = ({ onSubmit, onCancel, loading }: CredenciamentoFormP
         </Button>
         <Button
           onClick={handleSubmit}
-          disabled={loading || !formData.perfil || !formData.documento || formData.logistica.length === 0 || formData.regioes.length === 0}
+          disabled={loading || !isFormValid}
           className="rounded-xl h-12 px-8 bg-[#103927] hover:bg-[#103927]/90"
         >
           {loading ? (
