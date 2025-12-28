@@ -259,7 +259,7 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
     }
   };
 
-  // Função para buscar conexões aprovadas
+  // Função para buscar conexões aprovadas com acordos de comissão
   const fetchApprovedConnections = async () => {
     if (!especificadorId) return;
     try {
@@ -279,7 +279,23 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
         .eq("status", "approved");
 
       if (error) throw error;
-      setApprovedConnections(data || []);
+      
+      // Para cada conexão, buscar o acordo de comissão mais recente
+      const connectionsWithAcordos = await Promise.all((data || []).map(async (conn) => {
+        const { data: acordoData } = await supabase
+          .from("acordos_comissao")
+          .select("*")
+          .eq("connection_id", conn.id)
+          .order("created_at", { ascending: false })
+          .limit(1);
+        
+        return {
+          ...conn,
+          acordo_atual: acordoData?.[0] || null
+        };
+      }));
+      
+      setApprovedConnections(connectionsWithAcordos);
     } catch (error) {
       console.error("Erro ao buscar conexões:", error);
     }
@@ -773,50 +789,76 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {approvedConnections.map((conn) => (
-                <Card key={conn.id} className="rounded-2xl border shadow-sm hover:shadow-md transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex items-center gap-4 mb-4">
-                      {conn.fabrica?.logo_url ? (
-                        <img src={conn.fabrica.logo_url} alt="" className="w-12 h-12 rounded-full object-cover" />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-[#103927]/10 flex items-center justify-center">
-                          <Building2 className="w-6 h-6 text-[#103927]" />
-                        </div>
-                      )}
-                      <div>
-                        <h3 className="font-semibold">{conn.fabrica?.nome}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {conn.fabrica?.cidade}, {conn.fabrica?.estado}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Status</span>
-                        <Badge className="bg-emerald-500 text-white">Aprovado</Badge>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Comissão</span>
-                        <span className="font-medium">{conn.commission_rate ? `${conn.commission_rate}%` : 'A definir'}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Aprovado em</span>
-                        <span>{new Date(conn.updated_at).toLocaleDateString()}</span>
-                      </div>
-                    </div>
+              {approvedConnections.map((conn) => {
+                const acordo = conn.acordo_atual;
+                const isPendente = acordo?.status === 'pendente';
+                const isAprovado = acordo?.status === 'aprovado';
+                const comissaoDisplay = isAprovado 
+                  ? `${acordo.percentual_aprovado}%` 
+                  : isPendente 
+                    ? `${acordo.percentual_solicitado}% (pendente)` 
+                    : 'A definir';
 
-                    <Button
-                      variant="outline"
-                      className="w-full mt-4"
-                      onClick={() => window.location.href = `/relacionamento/${conn.id}`}
-                    >
-                      Ver Relacionamento
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
+                return (
+                  <Card key={conn.id} className="rounded-2xl border shadow-sm hover:shadow-md transition-shadow">
+                    <CardContent className="p-6">
+                      <div className="flex items-center gap-4 mb-4">
+                        {conn.fabrica?.logo_url ? (
+                          <img src={conn.fabrica.logo_url} alt="" className="w-12 h-12 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-[#103927]/10 flex items-center justify-center">
+                            <Building2 className="w-6 h-6 text-[#103927]" />
+                          </div>
+                        )}
+                        <div>
+                          <h3 className="font-semibold">{conn.fabrica?.nome}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {conn.fabrica?.cidade}, {conn.fabrica?.estado}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Status</span>
+                          <Badge className="bg-emerald-500 text-white">Aprovado</Badge>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Comissão</span>
+                          <div className="flex items-center gap-2">
+                            {isPendente && (
+                              <Clock className="h-4 w-4 text-amber-500" />
+                            )}
+                            {isAprovado && (
+                              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                            )}
+                            <span className={`font-medium ${isPendente ? 'text-amber-600' : isAprovado ? 'text-emerald-600' : ''}`}>
+                              {comissaoDisplay}
+                            </span>
+                          </div>
+                        </div>
+                        {isPendente && (
+                          <p className="text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
+                            Aguardando aprovação da fábrica
+                          </p>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Aprovado em</span>
+                          <span>{new Date(conn.updated_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        className="w-full mt-4"
+                        onClick={() => window.location.href = `/relacionamento/${conn.id}`}
+                      >
+                        Ver Relacionamento
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>

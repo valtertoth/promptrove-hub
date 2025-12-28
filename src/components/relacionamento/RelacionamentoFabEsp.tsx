@@ -314,6 +314,7 @@ const RelacionamentoFabEsp = ({ connectionId, userRole, onBack }: Relacionamento
   };
 
   const comissaoAtual = acordos.find((a) => a.status === "aprovado");
+  const comissaoPendente = acordos.find((a) => a.status === "pendente");
   const totalPedidos = pedidos.length;
   const totalVendas = pedidos
     .filter((p) => p.status === "entregue")
@@ -542,6 +543,45 @@ const RelacionamentoFabEsp = ({ connectionId, userRole, onBack }: Relacionamento
                       >
                         <Plus className="h-4 w-4 mr-2" />
                         Solicitar Alteração
+                      </Button>
+                    )}
+                  </div>
+                ) : comissaoPendente ? (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Clock className="h-5 w-5 text-amber-600" />
+                        <span className="font-medium text-amber-800">Solicitação Pendente</span>
+                      </div>
+                      <p className="text-sm text-amber-700 mb-3">
+                        {userRole === "especificador" 
+                          ? "Aguardando aprovação da fábrica."
+                          : "O especificador solicitou um percentual de comissão."}
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Percentual Solicitado</span>
+                        <span className="text-2xl font-bold text-amber-600">
+                          {comissaoPendente.percentual_solicitado}%
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Solicitado em {format(new Date(comissaoPendente.data_solicitacao), "dd/MM/yyyy 'às' HH:mm")}
+                      </p>
+                    </div>
+                    {userRole === "fabrica" && (
+                      <Button
+                        className="w-full"
+                        onClick={() => {
+                          setAcordoSelecionado(comissaoPendente);
+                          setRespostaComissao({
+                            percentual: comissaoPendente.percentual_solicitado.toString(),
+                            observacoes: "",
+                          });
+                          setShowResponderComissao(true);
+                        }}
+                      >
+                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                        Responder Solicitação
                       </Button>
                     )}
                   </div>
