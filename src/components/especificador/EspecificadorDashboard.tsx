@@ -4,39 +4,27 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Search,
-  LayoutGrid,
-  FolderHeart,
-  Wallet,
-  LogOut,
   Settings,
-  Filter,
-  Heart,
-  ChevronRight,
-  PackageSearch,
-  Loader2,
   Lock,
   Clock,
   CheckCircle2,
   Building2,
-  Truck,
-  Map,
+  Loader2,
+  PackageSearch,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import VitrineFilters from "./VitrineFilters";
+import CredenciamentoForm, { CredenciamentoData } from "./CredenciamentoForm";
 
 interface EspecificadorDashboardProps {
   userId: string;
@@ -44,12 +32,19 @@ interface EspecificadorDashboardProps {
 
 interface Product {
   id: string;
-  name: string;
-  category: string;
-  image_url: string | null;
-  manufacturer_id: string;
-  description: string;
-  manufacturer_name?: string; // Novo campo para o nome da fábrica
+  nome: string;
+  tipo_produto: string | null;
+  categorias: string[] | null;
+  ambientes: string[] | null;
+  imagens: string[] | null;
+  descricao: string | null;
+  fabrica_id: string;
+  fabrica?: {
+    id: string;
+    nome: string;
+    cidade: string | null;
+    estado: string | null;
+  };
 }
 
 interface Connection {
@@ -57,28 +52,42 @@ interface Connection {
   status: "pending" | "approved" | "rejected";
 }
 
+interface Fabricante {
+  id: string;
+  nome: string;
+}
+
+interface Fornecedor {
+  id: string;
+  nome: string;
+}
+
 const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
   const { signOut } = useAuth();
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [especificadorId, setEspecificadorId] = useState<string | null>(null);
 
+  // Filtros
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedAcesso, setSelectedAcesso] = useState("todos");
+  const [selectedFabricante, setSelectedFabricante] = useState("todos");
+  const [selectedCategoria, setSelectedCategoria] = useState("todos");
+  const [selectedAmbiente, setSelectedAmbiente] = useState("todos");
+  const [selectedFornecedor, setSelectedFornecedor] = useState("todos");
+
+  // Dados para filtros
+  const [fabricantes, setFabricantes] = useState<Fabricante[]>([]);
+  const [categorias, setCategorias] = useState<string[]>([]);
+  const [ambientes, setAmbientes] = useState<string[]>([]);
+  const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
+
+  // Modal de credenciamento
   const [isApplicationOpen, setIsApplicationOpen] = useState(false);
   const [selectedFactoryId, setSelectedFactoryId] = useState<string | null>(null);
-  const [applicationStep, setApplicationStep] = useState(false);
-
-  const [formData, setFormData] = useState({
-    type: "",
-    docType: "cnpj",
-    document: "",
-    social: "",
-    address: "",
-    logistics: "proprio",
-    regions: "",
-    salesModel: "revenda",
-    about: "",
-  });
+  const [selectedFactoryName, setSelectedFactoryName] = useState<string>("");
+  const [applicationLoading, setApplicationLoading] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -87,41 +96,80 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. Buscar Produtos
-      const { data: prodData } = await supabase
-        .from("products")
-        .select("*")
-        .eq("is_active", true)
-        .order("created_at", { ascending: false });
+      // Buscar especificador_id
+      const { data: especData } = await supabase
+        .from("especificador")
+        .select("id")
+        .eq("user_id", userId)
+        .maybeSingle();
 
-      // 2. Buscar Nomes das Fábricas (Cruzamento de dados)
-      if (prodData && prodData.length > 0) {
-        // Pega todos os IDs de fabricantes únicos
-        const manufacturerIds = [...new Set(prodData.map((p) => p.manufacturer_id))];
-
-        // Busca os perfis desses IDs
-        const { data: profiles } = await supabase.from("profiles").select("id, nome").in("id", manufacturerIds);
-
-        // Combina o produto com o nome da fábrica
-        const productsWithNames = prodData.map((p) => ({
-          ...p,
-          manufacturer_name: profiles?.find((prof) => prof.id === p.manufacturer_id)?.nome || "Fábrica Parceira",
-        }));
-
-        setProducts(productsWithNames);
-      } else {
-        setProducts([]);
+      if (especData) {
+        setEspecificadorId(especData.id);
       }
 
-      // 3. Buscar Conexões
-      const { data: connData } = await supabase
-        .from("commercial_connections")
-        .select("factory_id, status")
-        .eq("specifier_id", userId);
+      // Buscar produtos com dados da fábrica
+      const { data: prodData } = await supabase
+        .from("produtos")
+        .select(`
+          *,
+          fabrica:fabrica_id (
+            id,
+            nome,
+            cidade,
+            estado
+          )
+        `)
+        .eq("ativo", true)
+        .order("created_at", { ascending: false });
 
-      if (connData) setConnections(connData as Connection[]);
+      if (prodData) {
+        setProducts(prodData as Product[]);
+
+        // Extrair categorias e ambientes únicos
+        const categoriasSet = new Set<string>();
+        const ambientesSet = new Set<string>();
+        const fabricantesMap = new Map<string, string>();
+
+        prodData.forEach((p: any) => {
+          if (p.categorias) {
+            p.categorias.forEach((cat: string) => categoriasSet.add(cat));
+          }
+          if (p.ambientes) {
+            p.ambientes.forEach((amb: string) => ambientesSet.add(amb));
+          }
+          if (p.fabrica) {
+            fabricantesMap.set(p.fabrica.id, p.fabrica.nome);
+          }
+        });
+
+        setCategorias(Array.from(categoriasSet).sort());
+        setAmbientes(Array.from(ambientesSet).sort());
+        setFabricantes(
+          Array.from(fabricantesMap.entries()).map(([id, nome]) => ({ id, nome }))
+        );
+      }
+
+      // Buscar conexões do especificador
+      if (especData) {
+        const { data: connData } = await supabase
+          .from("commercial_connections")
+          .select("factory_id, status")
+          .eq("specifier_id", especData.id);
+
+        if (connData) setConnections(connData as Connection[]);
+      }
+
+      // Buscar fornecedores
+      const { data: fornData } = await supabase
+        .from("fornecedor")
+        .select("id, nome")
+        .eq("ativo", true);
+
+      if (fornData) {
+        setFornecedores(fornData);
+      }
     } catch (error) {
-      console.error("Erro:", error);
+      console.error("Erro ao carregar dados:", error);
     } finally {
       setLoading(false);
     }
@@ -132,49 +180,117 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
     return conn ? conn.status : null;
   };
 
-  const handleOpenApplication = (factoryId: string) => {
+  const handleOpenApplication = (factoryId: string, factoryName: string) => {
     setSelectedFactoryId(factoryId);
+    setSelectedFactoryName(factoryName);
     setIsApplicationOpen(true);
   };
 
-  const handleSubmitApplication = async () => {
-    if (!selectedFactoryId || !formData.type || !formData.document) {
-      toast({ title: "Dados incompletos", description: "Preencha os campos obrigatórios.", variant: "destructive" });
+  const handleSubmitApplication = async (formData: CredenciamentoData) => {
+    if (!selectedFactoryId || !especificadorId) {
+      toast({
+        title: "Erro",
+        description: "Dados de usuário não encontrados.",
+        variant: "destructive",
+      });
       return;
     }
 
-    setApplicationStep(true);
+    setApplicationLoading(true);
     try {
-      const { error } = await supabase.from("commercial_connections").insert({
-        specifier_id: userId,
+      const insertData = {
+        specifier_id: especificadorId,
         factory_id: selectedFactoryId,
         status: "pending",
-        application_data: formData,
-      });
+        application_data: formData as any,
+        authorized_regions: formData.regioes,
+        logistics_info: {
+          logistica: formData.logistica,
+          transportadora_nome: formData.transportadora_nome,
+          transportadora_cnpj: formData.transportadora_cnpj,
+        } as any,
+      };
+      
+      const { error } = await supabase.from("commercial_connections").insert(insertData);
 
       if (error) throw error;
 
       toast({
-        title: "Dossiê Enviado",
-        description: "A fábrica analisará sua estrutura comercial.",
+        title: "Credenciamento Enviado!",
+        description: `Sua proposta foi enviada para ${selectedFactoryName}. Aguarde a análise.`,
         className: "bg-[#103927] text-white border-none",
       });
 
       setIsApplicationOpen(false);
       fetchData();
     } catch (error: any) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      toast({
+        title: "Erro ao enviar",
+        description: error.message,
+        variant: "destructive",
+      });
     } finally {
-      setApplicationStep(false);
+      setApplicationLoading(false);
     }
   };
 
-  const filteredProducts = products.filter(
-    (p) =>
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.manufacturer_name || "").toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  // Lógica de filtros
+  const filteredProducts = products.filter((p) => {
+    // Busca textual
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const matchesSearch =
+        p.nome.toLowerCase().includes(query) ||
+        (p.descricao || "").toLowerCase().includes(query) ||
+        (p.fabrica?.nome || "").toLowerCase().includes(query) ||
+        (p.tipo_produto || "").toLowerCase().includes(query);
+      if (!matchesSearch) return false;
+    }
+
+    // Filtro de acesso
+    if (selectedAcesso !== "todos") {
+      const status = getConnectionStatus(p.fabrica_id);
+      if (selectedAcesso === "aprovado" && status !== "approved") return false;
+      if (selectedAcesso === "pendente" && status !== "pending") return false;
+      if (selectedAcesso === "nao_solicitado" && status !== null) return false;
+    }
+
+    // Filtro de fabricante
+    if (selectedFabricante !== "todos" && p.fabrica_id !== selectedFabricante) {
+      return false;
+    }
+
+    // Filtro de categoria
+    if (selectedCategoria !== "todos") {
+      if (!p.categorias || !p.categorias.includes(selectedCategoria)) return false;
+    }
+
+    // Filtro de ambiente
+    if (selectedAmbiente !== "todos") {
+      if (!p.ambientes || !p.ambientes.includes(selectedAmbiente)) return false;
+    }
+
+    // Filtro de fornecedor (TODO: quando tivermos relação produto-fornecedor)
+
+    return true;
+  });
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setSelectedAcesso("todos");
+    setSelectedFabricante("todos");
+    setSelectedCategoria("todos");
+    setSelectedAmbiente("todos");
+    setSelectedFornecedor("todos");
+  };
+
+  const activeFiltersCount = [
+    selectedAcesso !== "todos",
+    selectedFabricante !== "todos",
+    selectedCategoria !== "todos",
+    selectedAmbiente !== "todos",
+    selectedFornecedor !== "todos",
+  ].filter(Boolean).length;
 
   return (
     <div className="min-h-screen bg-background p-6 md:p-12 font-sans text-foreground">
@@ -186,7 +302,11 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
           <h1 className="text-4xl font-serif font-medium text-foreground">Curadoria de Projetos</h1>
         </div>
         <div className="flex gap-4">
-          <Button onClick={() => window.location.href = '/profile'} variant="outline" className="rounded-full border-border hover:bg-secondary/50">
+          <Button
+            onClick={() => (window.location.href = "/profile")}
+            variant="outline"
+            className="rounded-full border-border hover:bg-secondary/50"
+          >
             <Settings className="mr-2 h-4 w-4" />
             Meu Perfil
           </Button>
@@ -221,13 +341,27 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
         </div>
 
         <TabsContent value="marketplace">
-          <div className="relative max-w-3xl mx-auto mb-12">
-            <Search className="absolute left-5 top-4 h-5 w-5 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por design, categoria ou fábrica..."
-              className="pl-14 h-14 rounded-full bg-white border-transparent shadow-lg shadow-black/5 text-lg focus:ring-2 focus:ring-[#103927]/20 transition-all"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+          {/* Filtros */}
+          <div className="mb-12">
+            <VitrineFilters
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              selectedAcesso={selectedAcesso}
+              onAcessoChange={setSelectedAcesso}
+              selectedFabricante={selectedFabricante}
+              onFabricanteChange={setSelectedFabricante}
+              selectedCategoria={selectedCategoria}
+              onCategoriaChange={setSelectedCategoria}
+              selectedAmbiente={selectedAmbiente}
+              onAmbienteChange={setSelectedAmbiente}
+              selectedFornecedor={selectedFornecedor}
+              onFornecedorChange={setSelectedFornecedor}
+              fabricantes={fabricantes}
+              categorias={categorias}
+              ambientes={ambientes}
+              fornecedores={fornecedores}
+              onClearFilters={clearFilters}
+              activeFiltersCount={activeFiltersCount}
             />
           </div>
 
@@ -238,92 +372,130 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
           ) : filteredProducts.length === 0 ? (
             <div className="text-center py-32 bg-white/50 rounded-[3rem] border border-dashed">
               <PackageSearch className="h-16 w-16 mx-auto text-muted-foreground opacity-30 mb-6" />
-              <h3 className="text-2xl font-serif text-foreground">Nada encontrado</h3>
+              <h3 className="text-2xl font-serif text-foreground">Nenhum produto encontrado</h3>
+              <p className="text-muted-foreground mt-2">Tente ajustar os filtros de busca</p>
+              {activeFiltersCount > 0 && (
+                <Button variant="outline" className="mt-4" onClick={clearFilters}>
+                  Limpar filtros
+                </Button>
+              )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {filteredProducts.map((product) => {
-                const status = getConnectionStatus(product.manufacturer_id);
+            <>
+              <p className="text-center text-muted-foreground mb-6">
+                {filteredProducts.length} produto(s) encontrado(s)
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                {filteredProducts.map((product) => {
+                  const status = getConnectionStatus(product.fabrica_id);
 
-                return (
-                  <Card
-                    key={product.id}
-                    className="group rounded-[2.5rem] border-none shadow-xl hover:shadow-2xl transition-all duration-500 bg-white overflow-hidden flex flex-col h-full cursor-default"
-                  >
-                    <div className="h-80 bg-secondary/20 relative overflow-hidden">
-                      {product.image_url ? (
-                        <img
-                          src={product.image_url}
-                          alt={product.name}
-                          className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
-                        />
-                      ) : (
-                        <div className="flex items-center justify-center h-full text-muted-foreground">
-                          <PackageSearch className="h-12 w-12 opacity-20" />
+                  return (
+                    <Card
+                      key={product.id}
+                      className="group rounded-[2.5rem] border-none shadow-xl hover:shadow-2xl transition-all duration-500 bg-white overflow-hidden flex flex-col h-full cursor-default"
+                    >
+                      <div className="h-80 bg-secondary/20 relative overflow-hidden">
+                        {product.imagens && product.imagens.length > 0 ? (
+                          <img
+                            src={product.imagens[0]}
+                            alt={product.nome}
+                            className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center h-full text-muted-foreground">
+                            <PackageSearch className="h-12 w-12 opacity-20" />
+                          </div>
+                        )}
+
+                        {/* Etiquetas */}
+                        <div className="absolute top-4 left-4 flex gap-2 flex-wrap">
+                          {product.tipo_produto && (
+                            <Badge className="bg-white/90 text-foreground backdrop-blur shadow-sm hover:bg-white">
+                              {product.tipo_produto}
+                            </Badge>
+                          )}
+                          {status === "approved" && (
+                            <Badge className="bg-emerald-500 text-white">
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              Acesso
+                            </Badge>
+                          )}
                         </div>
-                      )}
 
-                      {/* Etiqueta de Categoria */}
-                      <div className="absolute top-4 left-4 flex gap-2">
-                        <Badge className="bg-white/90 text-foreground backdrop-blur shadow-sm hover:bg-white">
-                          {product.category}
-                        </Badge>
+                        {/* Bloqueio Visual se não aprovado */}
+                        {status !== "approved" && (
+                          <div className="absolute inset-0 bg-[#103927]/90 backdrop-blur-sm flex flex-col items-center justify-center text-white p-6 text-center opacity-0 group-hover:opacity-100 transition-all duration-500">
+                            <Lock className="h-10 w-10 mb-4 text-[#D4AF37]" />
+                            <span className="text-2xl font-serif">Exclusivo</span>
+                            <span className="text-sm opacity-80 uppercase tracking-widest mt-2">
+                              Acesso Restrito
+                            </span>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Bloqueio Visual se não aprovado */}
-                      {status !== "approved" && (
-                        <div className="absolute inset-0 bg-[#103927]/90 backdrop-blur-sm flex flex-col items-center justify-center text-white p-6 text-center opacity-0 group-hover:opacity-100 transition-all duration-500">
-                          <Lock className="h-10 w-10 mb-4 text-[#D4AF37]" />
-                          <span className="text-2xl font-serif">Exclusivo</span>
-                          <span className="text-sm opacity-80 uppercase tracking-widest mt-2">Acesso Restrito</span>
+                      <CardContent className="p-8 flex-1">
+                        {/* Nome da Fábrica */}
+                        <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                          <Building2 className="w-3 h-3" />
+                          <span className="text-xs font-bold tracking-widest uppercase">
+                            {product.fabrica?.nome || "Fábrica Parceira"}
+                          </span>
                         </div>
-                      )}
-                    </div>
 
-                    <CardContent className="p-8 flex-1">
-                      {/* NOME DA FÁBRICA AGORA APARECE AQUI */}
-                      <div className="flex items-center gap-2 text-muted-foreground mb-2">
-                        <Building2 className="w-3 h-3" />
-                        <span className="text-xs font-bold tracking-widest uppercase">{product.manufacturer_name}</span>
-                      </div>
+                        <h3 className="font-serif font-medium text-2xl text-foreground leading-tight mb-2">
+                          {product.nome}
+                        </h3>
+                        <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+                          {product.descricao}
+                        </p>
 
-                      <h3 className="font-serif font-medium text-2xl text-foreground leading-tight mb-2">
-                        {product.name}
-                      </h3>
-                      <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
-                        {product.description}
-                      </p>
-                    </CardContent>
+                        {/* Categorias */}
+                        {product.categorias && product.categorias.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-3">
+                            {product.categorias.slice(0, 2).map((cat) => (
+                              <Badge key={cat} variant="outline" className="text-xs">
+                                {cat}
+                              </Badge>
+                            ))}
+                            {product.categorias.length > 2 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{product.categorias.length - 2}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
 
-                    <CardFooter className="p-8 pt-0">
-                      {status === "approved" ? (
-                        <Button
-                          className="w-full h-14 rounded-2xl bg-[#1C1917] hover:bg-black text-white shadow-lg transition-all group-hover:scale-105"
-                          onClick={() => toast({ title: "Adicionado ao projeto" })}
-                        >
-                          Especificar <ChevronRight className="ml-2 h-4 w-4" />
-                        </Button>
-                      ) : status === "pending" ? (
-                        <Button
-                          disabled
-                          className="w-full h-14 rounded-2xl bg-amber-100 text-amber-700 border border-amber-100"
-                        >
-                          <Clock className="mr-2 h-4 w-4" /> Em Análise
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          className="w-full h-14 rounded-2xl border-border hover:border-[#103927] hover:text-[#103927] bg-transparent"
-                          onClick={() => handleOpenApplication(product.manufacturer_id)}
-                        >
-                          Solicitar Acesso
-                        </Button>
-                      )}
-                    </CardFooter>
-                  </Card>
-                );
-              })}
-            </div>
+                      <CardFooter className="p-8 pt-0">
+                        {status === "approved" ? (
+                          <Button
+                            className="w-full h-14 rounded-2xl bg-[#1C1917] hover:bg-black text-white shadow-lg transition-all group-hover:scale-105"
+                            onClick={() => toast({ title: "Adicionado ao projeto" })}
+                          >
+                            Especificar <ChevronRight className="ml-2 h-4 w-4" />
+                          </Button>
+                        ) : status === "pending" ? (
+                          <Button disabled className="w-full h-14 rounded-2xl bg-amber-100 text-amber-700 border border-amber-100">
+                            <Clock className="mr-2 h-4 w-4" /> Em Análise
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            className="w-full h-14 rounded-2xl border-border hover:border-[#103927] hover:text-[#103927] bg-transparent"
+                            onClick={() =>
+                              handleOpenApplication(product.fabrica_id, product.fabrica?.nome || "Fábrica")
+                            }
+                          >
+                            Solicitar Acesso
+                          </Button>
+                        )}
+                      </CardFooter>
+                    </Card>
+                  );
+                })}
+              </div>
+            </>
           )}
         </TabsContent>
 
@@ -335,9 +507,9 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
         </TabsContent>
       </Tabs>
 
-      {/* MODAL DE CANDIDATURA */}
+      {/* MODAL DE CREDENCIAMENTO */}
       <Dialog open={isApplicationOpen} onOpenChange={setIsApplicationOpen}>
-        <DialogContent className="sm:max-w-[800px] rounded-[2rem] p-0 border-none shadow-2xl overflow-hidden bg-[#FAFAF9]">
+        <DialogContent className="sm:max-w-[900px] rounded-[2rem] p-0 border-none shadow-2xl overflow-hidden bg-[#FAFAF9]">
           <div className="bg-[#103927] p-8 text-white">
             <div className="flex items-center gap-4 mb-2">
               <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center">
@@ -345,100 +517,18 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
               </div>
               <div>
                 <DialogTitle className="text-2xl font-serif">Credenciamento Comercial</DialogTitle>
-                <DialogDescription className="text-white/60">Apresente sua estrutura para a fábrica.</DialogDescription>
+                <DialogDescription className="text-white/60">
+                  Apresente sua estrutura para {selectedFactoryName}
+                </DialogDescription>
               </div>
             </div>
           </div>
 
-          <div className="p-8 grid gap-6 overflow-y-auto max-h-[600px]">
-            <div className="grid md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Perfil</Label>
-                <Select onValueChange={(v) => setFormData({ ...formData, type: v })}>
-                  <SelectTrigger className="bg-white rounded-xl">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="lojista">Lojista</SelectItem>
-                    <SelectItem value="arquiteto">Arquiteto</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label>Documento</Label>
-                <Input
-                  className="bg-white rounded-xl"
-                  placeholder="CPF/CNPJ"
-                  onChange={(e) => setFormData({ ...formData, document: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-4 p-4 bg-white rounded-2xl border border-border/50">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Truck className="w-4 h-4" /> Logística / Entrega
-                </Label>
-                <Select onValueChange={(v) => setFormData({ ...formData, logistics: v })}>
-                  <SelectTrigger className="bg-gray-50 rounded-xl border-0">
-                    <SelectValue placeholder="Como você recebe?" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="proprio">Galpão Próprio</SelectItem>
-                    <SelectItem value="loja">Recebimento na Loja</SelectItem>
-                    <SelectItem value="cliente">Direto no Cliente</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Wallet className="w-4 h-4" /> Modelo de Compra
-                </Label>
-                <Select onValueChange={(v) => setFormData({ ...formData, salesModel: v })}>
-                  <SelectTrigger className="bg-gray-50 rounded-xl border-0">
-                    <SelectValue placeholder="Preferência Fiscal" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="revenda">Revenda</SelectItem>
-                    <SelectItem value="interne">Intermediação (RT)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Map className="w-4 h-4" /> Regiões de Atuação
-              </Label>
-              <Input
-                className="bg-white rounded-xl"
-                placeholder="Ex: São Paulo Capital, Alphaville..."
-                onChange={(e) => setFormData({ ...formData, regions: e.target.value })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Instagram / Site</Label>
-              <Input
-                className="bg-white rounded-xl"
-                placeholder="@seu.perfil"
-                onChange={(e) => setFormData({ ...formData, social: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="p-6 bg-white border-t border-border flex justify-end gap-3">
-            <Button variant="ghost" onClick={() => setIsApplicationOpen(false)} className="rounded-xl h-12 px-6">
-              Cancelar
-            </Button>
-            <Button
-              onClick={handleSubmitApplication}
-              disabled={applicationStep}
-              className="rounded-xl bg-[#103927] hover:bg-[#0A261A] h-12 px-8 text-white shadow-lg"
-            >
-              {applicationStep ? <Loader2 className="animate-spin" /> : "Enviar Proposta"}
-            </Button>
-          </div>
+          <CredenciamentoForm
+            onSubmit={handleSubmitApplication}
+            onCancel={() => setIsApplicationOpen(false)}
+            loading={applicationLoading}
+          />
         </DialogContent>
       </Dialog>
     </div>
