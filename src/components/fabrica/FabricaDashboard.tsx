@@ -75,13 +75,14 @@ interface MaterialData {
 }
 interface ProductData {
   id: string;
-  name: string;
-  category: string;
-  sku_manufacturer: string;
-  description: string;
-  dimensions: string[];
-  image_url: string | null;
+  nome: string;
+  tipo_produto: string | null;
+  descricao: string | null;
+  imagens: string[] | null;
+  fabrica_id: string;
+  ativo: boolean;
   created_at: string;
+  ambientes?: string[] | null;
 }
 interface ConnectionRequest {
   id: string;
@@ -139,13 +140,14 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
   const [showOutroAmbiente, setShowOutroAmbiente] = useState(false);
   const [sugestaoAmbiente, setSugestaoAmbiente] = useState('');
 
+  // Estado para guardar o fabrica_id
+  const [fabricaId, setFabricaId] = useState<string | null>(null);
+  
   // Formulário Produto
   const [newProduct, setNewProduct] = useState({
-    name: "",
-    category: "",
-    sku: "",
-    description: "",
-    dimensions: [""],
+    nome: "",
+    tipo_produto: "",
+    descricao: "",
     image_urls: [] as string[],
   });
 
@@ -174,12 +176,33 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
   };
 
   const fetchMyProducts = async () => {
-    const { data } = await supabase
-      .from("products")
-      .select("*")
-      .eq("manufacturer_id", userId)
-      .order("created_at", { ascending: false });
-    if (data) setMyProducts(data);
+    // Primeiro buscar o fabrica_id do usuário
+    const { data: fabricaData } = await supabase
+      .from("fabrica")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+    
+    if (fabricaData) {
+      setFabricaId(fabricaData.id);
+      
+      const { data } = await supabase
+        .from("produtos")
+        .select("*")
+        .eq("fabrica_id", fabricaData.id)
+        .eq("ativo", true)
+        .order("created_at", { ascending: false });
+      
+      if (data) {
+        // Converter imagens de jsonb para array se necessário
+        const mappedProducts: ProductData[] = data.map((p: any) => ({
+          ...p,
+          imagens: Array.isArray(p.imagens) ? p.imagens : (p.imagens ? [p.imagens] : []),
+          ambientes: Array.isArray(p.ambientes) ? p.ambientes : [],
+        }));
+        setMyProducts(mappedProducts);
+      }
+    }
   };
 
   const fetchConnections = async () => {
@@ -323,17 +346,15 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
   // --- CRUD PRODUTO ---
   const handleEditProduct = async (product: ProductData) => {
     setEditingId(product.id);
-    // Compatibilidade: se tiver image_url antiga, converte para array
-    const existingImages = product.image_url ? [product.image_url] : [];
+    const existingImages = product.imagens || [];
     setNewProduct({
-      name: product.name,
-      category: product.category,
-      sku: product.sku_manufacturer || "",
-      description: product.description || "",
-      dimensions: product.dimensions || [""],
+      nome: product.nome,
+      tipo_produto: product.tipo_produto || "",
+      descricao: product.descricao || "",
       image_urls: existingImages,
     });
-    const { data: links } = await supabase.from("product_materials").select("material_id").eq("product_id", product.id);
+    setSelectedAmbientes(product.ambientes || []);
+    const { data: links } = await supabase.from("produto_materiais").select("material_id").eq("produto_id", product.id);
     if (links) {
       const linkedMaterials = allMaterials.filter((m) => links.some((l) => l.material_id === m.id));
       setSelectedMaterials(linkedMaterials);
@@ -343,7 +364,7 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
 
   const handleCancelEdit = () => {
     setEditingId(null);
-    setNewProduct({ name: "", category: "", sku: "", description: "", dimensions: [""], image_urls: [] });
+    setNewProduct({ nome: "", tipo_produto: "", descricao: "", image_urls: [] });
     setSelectedMaterials([]);
     setSelectedAmbientes([]);
     setShowOutroTipo(false);
@@ -352,8 +373,8 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
   };
 
   const handleDeleteProduct = async (id: string) => {
-    await supabase.from("product_materials").delete().eq("product_id", id);
-    const { error } = await supabase.from("products").delete().eq("id", id);
+    await supabase.from("produto_materiais").delete().eq("produto_id", id);
+    const { error } = await supabase.from("produtos").update({ ativo: false }).eq("id", id);
     if (!error) {
       toast({ title: "Excluído", className: "bg-gray-800 text-white border-none" });
       fetchMyProducts();
@@ -361,34 +382,38 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
   };
 
   const handleSaveProduct = async () => {
-    if (!newProduct.name || !newProduct.category) {
-      toast({ title: "Erro", description: "Campos obrigatórios.", variant: "destructive" });
+    if (!newProduct.nome || !newProduct.tipo_produto) {
+      toast({ title: "Erro", description: "Nome e categoria são obrigatórios.", variant: "destructive" });
+      return;
+    }
+    if (!fabricaId) {
+      toast({ title: "Erro", description: "Fábrica não encontrada.", variant: "destructive" });
       return;
     }
     setLoading(true);
     try {
       const payload = {
-        manufacturer_id: userId,
-        name: newProduct.name,
-        category: newProduct.category,
-        sku_manufacturer: newProduct.sku,
-        description: newProduct.description,
-        dimensions: newProduct.dimensions,
-        image_url: newProduct.image_urls[0] || null, // Primeira imagem como capa
+        fabrica_id: fabricaId,
+        nome: newProduct.nome,
+        tipo_produto: newProduct.tipo_produto,
+        descricao: newProduct.descricao,
+        imagens: newProduct.image_urls,
+        ambientes: selectedAmbientes,
+        ativo: true,
       };
       let pid = editingId;
       if (editingId) {
-        await supabase.from("products").update(payload).eq("id", editingId);
-        await supabase.from("product_materials").delete().eq("product_id", editingId);
+        await supabase.from("produtos").update(payload).eq("id", editingId);
+        await supabase.from("produto_materiais").delete().eq("produto_id", editingId);
         toast({ title: "Ficha Técnica Atualizada", className: "bg-[#103927] text-white border-none" });
       } else {
-        const { data } = await supabase.from("products").insert(payload).select().single();
+        const { data } = await supabase.from("produtos").insert(payload).select().single();
         if (data) pid = data.id;
         toast({ title: "Produto Publicado", className: "bg-[#103927] text-white border-none" });
       }
       if (selectedMaterials.length > 0 && pid) {
-        const links = selectedMaterials.map((m) => ({ product_id: pid, material_id: m.id }));
-        await supabase.from("product_materials").insert(links);
+        const links = selectedMaterials.map((m) => ({ produto_id: pid, material_id: m.id }));
+        await supabase.from("produto_materiais").insert(links);
       }
       handleCancelEdit();
       fetchMyProducts();
@@ -450,7 +475,13 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
 
         {/* ABA CONEXÕES COMERCIAIS */}
         <TabsContent value="partners">
-          <ConexoesComerciais fabricaId={userId} />
+          {fabricaId ? (
+            <ConexoesComerciais fabricaId={fabricaId} />
+          ) : (
+            <div className="text-center py-12 text-muted-foreground">
+              Carregando conexões comerciais...
+            </div>
+          )}
         </TabsContent>
 
         {/* OUTRAS ABAS (MANTIDAS) */}
@@ -521,9 +552,9 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                   onClick={() => handleEditProduct(product)}
                 >
                   <div className="h-56 bg-secondary/20 relative overflow-hidden">
-                    {product.image_url ? (
+                    {product.imagens && product.imagens.length > 0 ? (
                       <img
-                        src={product.image_url}
+                        src={product.imagens[0]}
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                       />
                     ) : (
@@ -571,14 +602,11 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                   <CardHeader className="pb-3 pt-5">
                     <div className="flex justify-between items-start">
                       <div>
-                        <CardTitle className="text-xl font-serif font-medium text-foreground">{product.name}</CardTitle>
+                        <CardTitle className="text-xl font-serif font-medium text-foreground">{product.nome}</CardTitle>
                         <CardDescription className="font-sans text-xs tracking-widest uppercase mt-1">
-                          {product.category}
+                          {product.tipo_produto}
                         </CardDescription>
                       </div>
-                      <Badge variant="outline" className="font-mono text-[10px]">
-                        {product.sku_manufacturer || "---"}
-                      </Badge>
                     </div>
                   </CardHeader>
                   <CardFooter className="pt-0">
@@ -608,14 +636,13 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                       onClick={() => {
                         setEditingId(null);
                         setNewProduct({
-                          name: "",
-                          category: "",
-                          sku: "",
-                          description: "",
-                          dimensions: [""],
+                          nome: "",
+                          tipo_produto: "",
+                          descricao: "",
                           image_urls: [],
                         });
                         setSelectedMaterials([]);
+                        setSelectedAmbientes([]);
                       }}
                     >
                       Cancelar
@@ -629,8 +656,8 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                       <Input
                         className="h-12 rounded-xl bg-secondary/10 border-0 focus:ring-1 focus:ring-[#103927] text-lg"
                         placeholder="Ex: Poltrona Alta"
-                        value={newProduct.name}
-                        onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                        value={newProduct.nome}
+                        onChange={(e) => setNewProduct({ ...newProduct, nome: e.target.value })}
                       />
                     </div>
                     <div className="space-y-2">
@@ -649,9 +676,8 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                               size="sm" 
                               onClick={async () => {
                                 if (!sugestaoTipo.trim()) return;
-                                // Aqui podemos enviar para aprovação ou usar diretamente
                                 toast({ title: 'Categoria personalizada definida', description: `"${sugestaoTipo}" será usada para este produto.` });
-                                setNewProduct({ ...newProduct, category: sugestaoTipo });
+                                setNewProduct({ ...newProduct, tipo_produto: sugestaoTipo });
                                 setShowOutroTipo(false);
                                 setSugestaoTipo('');
                               }}
@@ -666,12 +692,12 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                         </div>
                       ) : (
                         <Select 
-                          value={newProduct.category} 
+                          value={newProduct.tipo_produto} 
                           onValueChange={(v) => {
                             if (v === 'outro') {
                               setShowOutroTipo(true);
                             } else {
-                              setNewProduct({ ...newProduct, category: v });
+                              setNewProduct({ ...newProduct, tipo_produto: v });
                             }
                           }}
                         >
