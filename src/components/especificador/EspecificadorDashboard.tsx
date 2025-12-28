@@ -97,6 +97,7 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
     setLoading(true);
     try {
       // Buscar especificador_id
+      let especificador = null;
       const { data: especData } = await supabase
         .from("especificador")
         .select("id")
@@ -104,7 +105,28 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
         .maybeSingle();
 
       if (especData) {
+        especificador = especData;
         setEspecificadorId(especData.id);
+      } else {
+        // Se não existe registro de especificador, criar automaticamente
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: newEspec, error: createError } = await supabase
+            .from("especificador")
+            .insert({
+              user_id: userId,
+              nome: user.user_metadata?.nome || user.email?.split('@')[0] || 'Especificador',
+              email: user.email || '',
+              tipo: 'arquiteto' as const,
+            })
+            .select('id')
+            .single();
+
+          if (!createError && newEspec) {
+            especificador = newEspec;
+            setEspecificadorId(newEspec.id);
+          }
+        }
       }
 
       // Buscar produtos da tabela unificada 'produtos' com dados da fábrica
@@ -153,11 +175,11 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
       }
 
       // Buscar conexões do especificador
-      if (especData) {
+      if (especificador) {
         const { data: connData } = await supabase
           .from("commercial_connections")
           .select("factory_id, status")
-          .eq("specifier_id", especData.id);
+          .eq("specifier_id", especificador.id);
 
         if (connData) setConnections(connData as Connection[]);
       }
