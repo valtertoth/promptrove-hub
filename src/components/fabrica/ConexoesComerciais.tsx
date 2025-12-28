@@ -25,8 +25,10 @@ import {
   FileText,
   Eye,
   Loader2,
+  Settings2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import GerenciadorCidadesAutorizadas from "./GerenciadorCidadesAutorizadas";
 
 interface ConexoesComerciaisProps {
   fabricaId: string;
@@ -39,6 +41,7 @@ interface Conexao {
   level: string;
   application_data: any;
   authorized_regions: string[] | null;
+  authorized_cities: Record<string, { all: boolean; cities: string[] }> | null;
   sales_model: string | null;
   logistics_info: any;
   created_at: string;
@@ -60,6 +63,8 @@ const ConexoesComerciais = ({ fabricaId }: ConexoesComerciaisProps) => {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [selectedConexao, setSelectedConexao] = useState<Conexao | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [cidadesDialogOpen, setCidadesDialogOpen] = useState(false);
+  const [conexaoParaCidades, setConexaoParaCidades] = useState<Conexao | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -86,7 +91,7 @@ const ConexoesComerciais = ({ fabricaId }: ConexoesComerciaisProps) => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setConexoes((data as Conexao[]) || []);
+      setConexoes((data as unknown as Conexao[]) || []);
     } catch (error: any) {
       console.error("Erro ao buscar conexões:", error);
     } finally {
@@ -252,7 +257,7 @@ const ConexoesComerciais = ({ fabricaId }: ConexoesComerciaisProps) => {
                         </div>
 
                         {/* Ações */}
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                           <Button
                             variant="outline"
                             size="sm"
@@ -261,6 +266,21 @@ const ConexoesComerciais = ({ fabricaId }: ConexoesComerciaisProps) => {
                             <Eye className="h-4 w-4 mr-1" />
                             Ver Detalhes
                           </Button>
+
+                          {/* Botão de gerenciar cidades para conexões aprovadas */}
+                          {conexao.status === "approved" && conexao.application_data?.regioes?.length > 0 && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setConexaoParaCidades(conexao);
+                                setCidadesDialogOpen(true);
+                              }}
+                            >
+                              <Settings2 className="h-4 w-4 mr-1" />
+                              Gerenciar Cidades
+                            </Button>
+                          )}
 
                           {conexao.status === "pending" && (
                             <>
@@ -415,19 +435,28 @@ const ConexoesComerciais = ({ fabricaId }: ConexoesComerciaisProps) => {
                     )}
                   </div>
 
-                  {/* Endereço */}
-                  {selectedConexao.application_data.endereco && (
-                    <div>
-                      <Label className="flex items-center gap-2 mb-2">
+                  {/* Endereço Completo */}
+                  {(selectedConexao.application_data.logradouro || selectedConexao.application_data.cep) && (
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <Label className="flex items-center gap-2 mb-3">
                         <MapPin className="h-4 w-4" />
-                        Endereço
+                        Endereço Físico
                       </Label>
-                      <p className="text-sm">
-                        {selectedConexao.application_data.endereco}
-                        {selectedConexao.application_data.cidade && `, ${selectedConexao.application_data.cidade}`}
-                        {selectedConexao.application_data.estado && ` - ${selectedConexao.application_data.estado}`}
-                        {selectedConexao.application_data.cep && ` (${selectedConexao.application_data.cep})`}
-                      </p>
+                      <div className="space-y-1 text-sm">
+                        <p className="font-medium">
+                          {selectedConexao.application_data.logradouro}
+                          {selectedConexao.application_data.numero && `, ${selectedConexao.application_data.numero}`}
+                          {selectedConexao.application_data.complemento && ` - ${selectedConexao.application_data.complemento}`}
+                        </p>
+                        <p>
+                          {selectedConexao.application_data.bairro}
+                          {selectedConexao.application_data.cidade && ` - ${selectedConexao.application_data.cidade}`}
+                          {selectedConexao.application_data.estado && `/${selectedConexao.application_data.estado}`}
+                        </p>
+                        {selectedConexao.application_data.cep && (
+                          <p className="text-muted-foreground">CEP: {selectedConexao.application_data.cep}</p>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -474,6 +503,19 @@ const ConexoesComerciais = ({ fabricaId }: ConexoesComerciaisProps) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog de Gerenciamento de Cidades */}
+      {conexaoParaCidades && (
+        <GerenciadorCidadesAutorizadas
+          conexaoId={conexaoParaCidades.id}
+          especificadorNome={conexaoParaCidades.especificador?.nome || "Especificador"}
+          authorizedRegions={conexaoParaCidades.application_data?.regioes || []}
+          authorizedCities={conexaoParaCidades.authorized_cities || {}}
+          onUpdate={fetchConexoes}
+          open={cidadesDialogOpen}
+          onOpenChange={setCidadesDialogOpen}
+        />
+      )}
     </div>
   );
 };
