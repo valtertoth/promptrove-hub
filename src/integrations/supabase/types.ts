@@ -107,6 +107,7 @@ export type Database = {
       commercial_connections: {
         Row: {
           application_data: Json | null
+          authorized_cities: Json | null
           authorized_regions: string[] | null
           commission_rate: number | null
           created_at: string | null
@@ -121,6 +122,7 @@ export type Database = {
         }
         Insert: {
           application_data?: Json | null
+          authorized_cities?: Json | null
           authorized_regions?: string[] | null
           commission_rate?: number | null
           created_at?: string | null
@@ -135,6 +137,7 @@ export type Database = {
         }
         Update: {
           application_data?: Json | null
+          authorized_cities?: Json | null
           authorized_regions?: string[] | null
           commission_rate?: number | null
           created_at?: string | null
