@@ -47,6 +47,18 @@ interface Product {
   };
 }
 
+// Interface para a tabela products (em inglês)
+interface ProductFromDB {
+  id: string;
+  name: string;
+  category: string;
+  description: string | null;
+  image_url: string | null;
+  manufacturer_id: string;
+  is_active: boolean | null;
+  dimensions: string[] | null;
+}
+
 interface Connection {
   factory_id: string;
   status: "pending" | "approved" | "rejected";
@@ -107,35 +119,49 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
         setEspecificadorId(especData.id);
       }
 
-      // Buscar produtos com dados da fábrica
-      const { data: prodData } = await supabase
-        .from("produtos")
-        .select(`
-          *,
-          fabrica:fabrica_id (
-            id,
-            nome,
-            cidade,
-            estado
-          )
-        `)
-        .eq("ativo", true)
+      // Buscar produtos da tabela products (que é onde o FabricaDashboard salva)
+      const { data: productsData } = await supabase
+        .from("products")
+        .select("*")
+        .eq("is_active", true)
         .order("created_at", { ascending: false });
 
-      if (prodData) {
-        setProducts(prodData as Product[]);
+      // Buscar dados das fábricas (profiles dos fabricantes)
+      const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("id, nome, cidade, estado");
 
-        // Extrair categorias e ambientes únicos
+      if (productsData) {
+        // Mapear os produtos para o formato esperado
+        const mappedProducts: Product[] = productsData.map((p: ProductFromDB) => {
+          const fabricaProfile = profilesData?.find(f => f.id === p.manufacturer_id);
+          return {
+            id: p.id,
+            nome: p.name,
+            tipo_produto: p.category,
+            categorias: p.category ? [p.category] : null,
+            ambientes: null,
+            imagens: p.image_url ? [p.image_url] : null,
+            descricao: p.description,
+            fabrica_id: p.manufacturer_id,
+            fabrica: fabricaProfile ? {
+              id: fabricaProfile.id,
+              nome: fabricaProfile.nome,
+              cidade: fabricaProfile.cidade,
+              estado: fabricaProfile.estado,
+            } : undefined,
+          };
+        });
+
+        setProducts(mappedProducts);
+
+        // Extrair categorias únicas
         const categoriasSet = new Set<string>();
-        const ambientesSet = new Set<string>();
         const fabricantesMap = new Map<string, string>();
 
-        prodData.forEach((p: any) => {
-          if (p.categorias) {
-            p.categorias.forEach((cat: string) => categoriasSet.add(cat));
-          }
-          if (p.ambientes) {
-            p.ambientes.forEach((amb: string) => ambientesSet.add(amb));
+        mappedProducts.forEach((p) => {
+          if (p.tipo_produto) {
+            categoriasSet.add(p.tipo_produto);
           }
           if (p.fabrica) {
             fabricantesMap.set(p.fabrica.id, p.fabrica.nome);
@@ -143,7 +169,6 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
         });
 
         setCategorias(Array.from(categoriasSet).sort());
-        setAmbientes(Array.from(ambientesSet).sort());
         setFabricantes(
           Array.from(fabricantesMap.entries()).map(([id, nome]) => ({ id, nome }))
         );
@@ -260,15 +285,13 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
       return false;
     }
 
-    // Filtro de categoria
+    // Filtro de categoria (agora baseado em tipo_produto)
     if (selectedCategoria !== "todos") {
-      if (!p.categorias || !p.categorias.includes(selectedCategoria)) return false;
+      if (p.tipo_produto !== selectedCategoria) return false;
     }
 
-    // Filtro de ambiente
-    if (selectedAmbiente !== "todos") {
-      if (!p.ambientes || !p.ambientes.includes(selectedAmbiente)) return false;
-    }
+    // Filtro de ambiente (não aplicável com a nova estrutura)
+    // Os produtos da tabela products não têm campo ambientes
 
     // Filtro de fornecedor (TODO: quando tivermos relação produto-fornecedor)
 
