@@ -47,18 +47,6 @@ interface Product {
   };
 }
 
-// Interface para a tabela products (em inglês)
-interface ProductFromDB {
-  id: string;
-  name: string;
-  category: string;
-  description: string | null;
-  image_url: string | null;
-  manufacturer_id: string;
-  is_active: boolean | null;
-  dimensions: string[] | null;
-}
-
 interface Connection {
   factory_id: string;
   status: "pending" | "approved" | "rejected";
@@ -119,39 +107,29 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
         setEspecificadorId(especData.id);
       }
 
-      // Buscar produtos da tabela products (que é onde o FabricaDashboard salva)
-      const { data: productsData } = await supabase
-        .from("products")
-        .select("*")
-        .eq("is_active", true)
+      // Buscar produtos da tabela unificada 'produtos' com dados da fábrica
+      const { data: prodData } = await supabase
+        .from("produtos")
+        .select(`
+          *,
+          fabrica:fabrica_id (
+            id,
+            nome,
+            cidade,
+            estado
+          )
+        `)
+        .eq("ativo", true)
         .order("created_at", { ascending: false });
 
-      // Buscar dados das fábricas (profiles dos fabricantes)
-      const { data: profilesData } = await supabase
-        .from("profiles")
-        .select("id, nome, cidade, estado");
-
-      if (productsData) {
-        // Mapear os produtos para o formato esperado
-        const mappedProducts: Product[] = productsData.map((p: ProductFromDB) => {
-          const fabricaProfile = profilesData?.find(f => f.id === p.manufacturer_id);
-          return {
-            id: p.id,
-            nome: p.name,
-            tipo_produto: p.category,
-            categorias: p.category ? [p.category] : null,
-            ambientes: null,
-            imagens: p.image_url ? [p.image_url] : null,
-            descricao: p.description,
-            fabrica_id: p.manufacturer_id,
-            fabrica: fabricaProfile ? {
-              id: fabricaProfile.id,
-              nome: fabricaProfile.nome,
-              cidade: fabricaProfile.cidade,
-              estado: fabricaProfile.estado,
-            } : undefined,
-          };
-        });
+      if (prodData) {
+        // Converter imagens de jsonb para array se necessário
+        const mappedProducts: Product[] = prodData.map((p: any) => ({
+          ...p,
+          imagens: Array.isArray(p.imagens) ? p.imagens : (p.imagens ? [p.imagens] : null),
+          categorias: p.tipo_produto ? [p.tipo_produto] : null,
+          ambientes: Array.isArray(p.ambientes) ? p.ambientes : null,
+        }));
 
         setProducts(mappedProducts);
 
