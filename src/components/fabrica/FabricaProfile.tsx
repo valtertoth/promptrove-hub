@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { PaymentOptionsConfig } from "@/components/shared/PaymentOptionsConfig";
 
 interface FabricaProfileProps {
   userId: string;
@@ -45,6 +46,8 @@ const FabricaProfile = ({ userId, fabricaData, onComplete }: FabricaProfileProps
     minimum_order: "",
     regions: "",
   });
+  
+  const [opcoesPagamento, setOpcoesPagamento] = useState<string[]>([]);
 
   // Carregar dados se existirem
   useEffect(() => {
@@ -64,6 +67,12 @@ const FabricaProfile = ({ userId, fabricaData, onComplete }: FabricaProfileProps
         minimum_order: fabricaData.minimum_order || "",
         regions: fabricaData.regions || "",
       });
+      
+      // Carregar opções de pagamento
+      const opcoes = Array.isArray(fabricaData.opcoes_pagamento) 
+        ? fabricaData.opcoes_pagamento 
+        : [];
+      setOpcoesPagamento(opcoes);
     }
   }, [fabricaData]);
 
@@ -114,6 +123,7 @@ const FabricaProfile = ({ userId, fabricaData, onComplete }: FabricaProfileProps
         production_time: formData.production_time,
         minimum_order: formData.minimum_order,
         regions: formData.regions,
+        opcoes_pagamento: opcoesPagamento,
       });
 
       if (error) throw error;
@@ -319,6 +329,14 @@ const FabricaProfile = ({ userId, fabricaData, onComplete }: FabricaProfileProps
             />
           </div>
         </div>
+      </div>
+
+      {/* Opções de Pagamento */}
+      <div className="pt-4">
+        <PaymentOptionsConfig
+          selectedOptions={opcoesPagamento}
+          onOptionsChange={setOpcoesPagamento}
+        />
       </div>
 
       <div className="sticky bottom-0 bg-white/80 backdrop-blur-lg p-4 -mx-6 -mb-6 flex justify-end gap-4 border-t border-gray-100">

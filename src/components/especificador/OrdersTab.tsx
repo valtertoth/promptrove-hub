@@ -44,6 +44,8 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import OrderWorkflow from '@/components/shared/OrderWorkflow';
+import { PaymentStepDialog } from '@/components/shared/PaymentStepDialog';
+import { getPaymentOptionById } from '@/components/shared/PaymentOptionsConfig';
 
 interface Pedido {
   id: string;
@@ -61,10 +63,13 @@ interface Pedido {
   etapa_fabricacao: string | null;
   etapa_expedicao: string | null;
   data_entrega: string | null;
+  tipo_pagamento: string | null;
+  comprovante_pagamento_url: string | null;
   fabrica?: {
     id: string;
     nome: string;
     logo_url: string | null;
+    opcoes_pagamento: string[];
   };
   itens?: {
     id: string;
@@ -92,6 +97,7 @@ const OrdersTab = ({ especificadorId }: OrdersTabProps) => {
   const [statusFilter, setStatusFilter] = useState('todos');
   const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
 
   useEffect(() => {
     if (especificadorId) {
@@ -108,7 +114,7 @@ const OrdersTab = ({ especificadorId }: OrdersTabProps) => {
         .from('pedidos')
         .select(`
           *,
-          fabrica:fabrica_id (id, nome, logo_url),
+          fabrica:fabrica_id (id, nome, logo_url, opcoes_pagamento),
           itens:itens_pedido (
             id,
             quantidade,
@@ -388,8 +394,30 @@ const OrdersTab = ({ especificadorId }: OrdersTabProps) => {
                     {pedido.status !== 'rascunho' && pedido.status !== 'cancelado' && (
                       <div className="bg-muted/30 rounded-xl p-4">
                         <p className="text-xs text-muted-foreground mb-3 font-medium">Acompanhamento:</p>
-                        <OrderWorkflow pedido={pedido} />
-                      </div>
+                      <OrderWorkflow pedido={pedido} />
+                      
+                      {/* Botão para escolher pagamento se ainda não escolheu */}
+                      {pedido.status === 'enviado' && !pedido.tipo_pagamento && pedido.fabrica?.opcoes_pagamento && (pedido.fabrica.opcoes_pagamento as string[]).length > 0 && (
+                        <Button
+                          size="sm"
+                          className="mt-4 bg-emerald-600 hover:bg-emerald-700"
+                          onClick={() => {
+                            setSelectedPedido(pedido);
+                            setPaymentDialogOpen(true);
+                          }}
+                        >
+                          Escolher Forma de Pagamento
+                        </Button>
+                      )}
+                      
+                      {/* Mostrar forma de pagamento escolhida */}
+                      {pedido.tipo_pagamento && (
+                        <div className="mt-3 p-2 bg-white rounded-lg border text-sm">
+                          <span className="text-muted-foreground">Pagamento: </span>
+                          <span className="font-medium">{getPaymentOptionById(pedido.tipo_pagamento)?.label}</span>
+                        </div>
+                      )}
+                    </div>
                     )}
 
                     {/* Info do pedido */}
@@ -509,6 +537,21 @@ const OrdersTab = ({ especificadorId }: OrdersTabProps) => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Dialog de seleção de pagamento */}
+      {selectedPedido && (
+        <PaymentStepDialog
+          open={paymentDialogOpen}
+          onOpenChange={setPaymentDialogOpen}
+          pedidoId={selectedPedido.id}
+          pedidoNumero={selectedPedido.numero_pedido}
+          availableOptions={(selectedPedido.fabrica?.opcoes_pagamento as string[]) || []}
+          onSuccess={fetchPedidos}
+          mode="select"
+          currentPaymentType={selectedPedido.tipo_pagamento}
+          currentProofUrl={selectedPedido.comprovante_pagamento_url}
+        />
+      )}
     </div>
   );
 };
