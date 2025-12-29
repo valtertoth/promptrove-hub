@@ -26,7 +26,7 @@ const Catalogo = () => {
 
   // Estado para o dialog de especificar
   const [especificarOpen, setEspecificarOpen] = useState(false);
-  const [produtoSelecionado, setProdutoSelecionado] = useState<{ id: string; nome: string } | null>(null);
+  const [produtoSelecionado, setProdutoSelecionado] = useState<{ id: string; nome: string; fabrica_id: string } | null>(null);
 
   // Verificar se o usuário é especificador
   const [isEspecificador, setIsEspecificador] = useState(false);
@@ -158,7 +158,7 @@ const Catalogo = () => {
   };
 
   const handleEspecificar = (produto: any) => {
-    setProdutoSelecionado({ id: produto.id, nome: produto.nome });
+    setProdutoSelecionado({ id: produto.id, nome: produto.nome, fabrica_id: produto.fabrica_id });
     setEspecificarOpen(true);
   };
 

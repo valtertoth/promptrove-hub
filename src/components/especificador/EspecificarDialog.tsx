@@ -8,13 +8,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, Plus, FolderOpen, Truck } from 'lucide-react';
+import { Loader2, Plus, FolderOpen, Truck, AlertCircle } from 'lucide-react';
 
-interface Projeto {
+interface Pedido {
   id: string;
-  nome_projeto: string;
-  cliente: string | null;
+  numero_pedido: string;
+  cliente_nome: string;
   created_at: string;
+  fabrica_id: string;
 }
 
 interface EspecificarDialogProps {
@@ -23,6 +24,7 @@ interface EspecificarDialogProps {
   produto: {
     id: string;
     nome: string;
+    fabrica_id: string;
   } | null;
 }
 
@@ -35,58 +37,29 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [projetos, setProjetos] = useState<Projeto[]>([]);
+  const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [especificadorId, setEspecificadorId] = useState<string | null>(null);
+  const [connectionId, setConnectionId] = useState<string | null>(null);
+  const [hasConnection, setHasConnection] = useState(false);
   
-  // Para novo projeto
-  const [novoNomeProjeto, setNovoNomeProjeto] = useState('');
+  // Para novo pedido
   const [novoCliente, setNovoCliente] = useState('');
   
-  // Para projeto existente
-  const [projetoSelecionado, setProjetoSelecionado] = useState<string>('');
+  // Para pedido existente
+  const [pedidoSelecionado, setPedidoSelecionado] = useState<string>('');
   
   // Dados do item
   const [quantidade, setQuantidade] = useState('1');
   const [tipoEntrega, setTipoEntrega] = useState('transporte_normal');
 
   useEffect(() => {
-    if (open && user) {
-      fetchEspecificadorAndProjetos();
+    if (open && user && produto) {
+      fetchEspecificadorAndPedidos();
     }
-  }, [open, user]);
+  }, [open, user, produto]);
 
-  // Gerar próximo número de venda automaticamente
-  const generateNextNumeroVenda = async (especId: string): Promise<string> => {
-    try {
-      const { data, error } = await supabase
-        .from('projetos')
-        .select('nome_projeto')
-        .eq('especificador_id', especId)
-        .order('created_at', { ascending: false })
-        .limit(100);
-
-      if (error) throw error;
-
-      // Encontrar o maior número
-      let maxNumber = 0;
-      (data || []).forEach(p => {
-        const match = p.nome_projeto.match(/^(\d+)$/);
-        if (match) {
-          const num = parseInt(match[1], 10);
-          if (num > maxNumber) maxNumber = num;
-        }
-      });
-
-      // Retornar próximo número formatado com zeros à esquerda
-      return String(maxNumber + 1).padStart(6, '0');
-    } catch (error) {
-      console.error('Erro ao gerar número da venda:', error);
-      return String(Date.now()).slice(-6);
-    }
-  };
-
-  const fetchEspecificadorAndProjetos = async () => {
-    if (!user) return;
+  const fetchEspecificadorAndPedidos = async () => {
+    if (!user || !produto) return;
     
     setLoading(true);
     try {
@@ -111,25 +84,42 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
 
       setEspecificadorId(especData.id);
 
-      // Buscar projetos do especificador
-      const { data: projetosData, error: projetosError } = await supabase
-        .from('projetos')
-        .select('*')
-        .eq('especificador_id', especData.id)
-        .order('created_at', { ascending: false });
+      // Verificar se existe conexão aprovada com a fábrica deste produto
+      const { data: connData, error: connError } = await supabase
+        .from('commercial_connections')
+        .select('id')
+        .eq('specifier_id', especData.id)
+        .eq('factory_id', produto.fabrica_id)
+        .eq('status', 'approved')
+        .maybeSingle();
 
-      if (projetosError) throw projetosError;
+      if (connError) throw connError;
 
-      setProjetos(projetosData || []);
+      if (!connData) {
+        setHasConnection(false);
+        setConnectionId(null);
+      } else {
+        setHasConnection(true);
+        setConnectionId(connData.id);
 
-      // Gerar próximo número de venda automaticamente
-      const nextNumber = await generateNextNumeroVenda(especData.id);
-      setNovoNomeProjeto(nextNumber);
+        // Buscar pedidos existentes do especificador para esta fábrica
+        const { data: pedidosData, error: pedidosError } = await supabase
+          .from('pedidos')
+          .select('id, numero_pedido, cliente_nome, created_at, fabrica_id')
+          .eq('especificador_id', especData.id)
+          .eq('fabrica_id', produto.fabrica_id)
+          .in('status', ['rascunho', 'enviado']) // Só pedidos que ainda podem receber itens
+          .order('created_at', { ascending: false });
+
+        if (pedidosError) throw pedidosError;
+
+        setPedidos(pedidosData || []);
+      }
     } catch (error: any) {
       console.error('Erro ao buscar dados:', error);
       toast({
         title: 'Erro',
-        description: 'Não foi possível carregar seus projetos.',
+        description: 'Não foi possível carregar seus dados.',
         variant: 'destructive',
       });
     } finally {
@@ -137,13 +127,13 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
     }
   };
 
-  const handleSaveNovoProjeto = async () => {
-    if (!especificadorId || !produto) return;
+  const handleSaveNovoPedido = async () => {
+    if (!especificadorId || !produto || !connectionId) return;
     
-    if (!novoNomeProjeto.trim()) {
+    if (!novoCliente.trim()) {
       toast({
-        title: 'Nome obrigatório',
-        description: 'Digite um nome para o projeto.',
+        title: 'Cliente obrigatório',
+        description: 'Digite o nome do cliente para criar o pedido.',
         variant: 'destructive',
       });
       return;
@@ -151,42 +141,45 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
 
     setSaving(true);
     try {
-      // Criar novo projeto
-      const { data: novoProjeto, error: projetoError } = await supabase
-        .from('projetos')
+      // Criar novo pedido (numero_pedido é gerado automaticamente pelo trigger)
+      const { data: novoPedido, error: pedidoError } = await supabase
+        .from('pedidos')
         .insert({
-          nome_projeto: novoNomeProjeto.trim(),
-          cliente: novoCliente.trim() || null,
+          cliente_nome: novoCliente.trim(),
           especificador_id: especificadorId,
+          fabrica_id: produto.fabrica_id,
+          connection_id: connectionId,
+          tipo_entrega: tipoEntrega,
+          status: 'rascunho',
+          numero_pedido: 'TEMP', // Será substituído pelo trigger
         })
         .select()
         .single();
 
-      if (projetoError) throw projetoError;
+      if (pedidoError) throw pedidoError;
 
-      // Adicionar item ao projeto
+      // Adicionar item ao pedido
       const { error: itemError } = await supabase
-        .from('itens_projeto')
+        .from('itens_pedido')
         .insert({
-          projeto_id: novoProjeto.id,
+          pedido_id: novoPedido.id,
           produto_id: produto.id,
           quantidade: parseInt(quantidade) || 1,
+          preco_unitario: 0, // Será definido posteriormente
+          preco_total: 0,
+          observacoes: `Tipo de entrega: ${tipoEntrega}`,
         });
 
       if (itemError) throw itemError;
 
       toast({
         title: 'Produto especificado!',
-        description: `"${produto.nome}" foi adicionado à venda "${novoNomeProjeto}".`,
+        description: `"${produto.nome}" foi adicionado ao pedido ${novoPedido.numero_pedido}.`,
         className: 'bg-emerald-600 text-white',
       });
 
       // Limpar e fechar
-      setNovoNomeProjeto('');
-      setNovoCliente('');
-      setQuantidade('1');
-      setTipoEntrega('transporte_normal');
-      onOpenChange(false);
+      resetAndClose();
     } catch (error: any) {
       console.error('Erro ao salvar:', error);
       toast({
@@ -199,11 +192,11 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
     }
   };
 
-  const handleSaveProjetoExistente = async () => {
-    if (!especificadorId || !produto || !projetoSelecionado) {
+  const handleSavePedidoExistente = async () => {
+    if (!especificadorId || !produto || !pedidoSelecionado) {
       toast({
-        title: 'Projeto não selecionado',
-        description: 'Selecione um projeto existente.',
+        title: 'Pedido não selecionado',
+        description: 'Selecione um pedido existente.',
         variant: 'destructive',
       });
       return;
@@ -211,30 +204,29 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
 
     setSaving(true);
     try {
-      // Adicionar item ao projeto existente
+      // Adicionar item ao pedido existente
       const { error: itemError } = await supabase
-        .from('itens_projeto')
+        .from('itens_pedido')
         .insert({
-          projeto_id: projetoSelecionado,
+          pedido_id: pedidoSelecionado,
           produto_id: produto.id,
           quantidade: parseInt(quantidade) || 1,
+          preco_unitario: 0,
+          preco_total: 0,
+          observacoes: `Tipo de entrega: ${tipoEntrega}`,
         });
 
       if (itemError) throw itemError;
 
-      const projetoNome = projetos.find(p => p.id === projetoSelecionado)?.nome_projeto;
+      const pedidoNome = pedidos.find(p => p.id === pedidoSelecionado)?.numero_pedido;
 
       toast({
         title: 'Produto especificado!',
-        description: `"${produto.nome}" foi adicionado ao projeto "${projetoNome}".`,
+        description: `"${produto.nome}" foi adicionado ao pedido ${pedidoNome}.`,
         className: 'bg-emerald-600 text-white',
       });
 
-      // Limpar e fechar
-      setProjetoSelecionado('');
-      setQuantidade('1');
-      setTipoEntrega('transporte_normal');
-      onOpenChange(false);
+      resetAndClose();
     } catch (error: any) {
       console.error('Erro ao salvar:', error);
       toast({
@@ -245,13 +237,21 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
     } finally {
       setSaving(false);
     }
+  };
+
+  const resetAndClose = () => {
+    setNovoCliente('');
+    setPedidoSelecionado('');
+    setQuantidade('1');
+    setTipoEntrega('transporte_normal');
+    onOpenChange(false);
   };
 
   if (!produto) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Especificar Produto</DialogTitle>
         </DialogHeader>
@@ -260,6 +260,20 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
+        ) : !hasConnection ? (
+          <div className="py-8 text-center space-y-4">
+            <AlertCircle className="h-12 w-12 mx-auto text-amber-500" />
+            <div>
+              <h3 className="font-semibold text-lg">Credenciamento Necessário</h3>
+              <p className="text-muted-foreground text-sm mt-2">
+                Você precisa estar credenciado com a fábrica deste produto para fazer especificações.
+                Solicite acesso na Vitrine.
+              </p>
+            </div>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Fechar
+            </Button>
+          </div>
         ) : (
           <div className="space-y-6">
             <div className="bg-muted/50 p-4 rounded-lg">
@@ -267,7 +281,7 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
               <p className="font-semibold">{produto.nome}</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Quantidade</Label>
                 <Input
@@ -303,36 +317,35 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
               {TIPOS_ENTREGA.find(t => t.value === tipoEntrega)?.description}
             </div>
 
-            <Tabs defaultValue={projetos.length > 0 ? "existente" : "novo"}>
+            <Tabs defaultValue={pedidos.length > 0 ? "existente" : "novo"}>
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="existente" disabled={projetos.length === 0}>
+                <TabsTrigger value="existente" disabled={pedidos.length === 0}>
                   <FolderOpen className="mr-2 h-4 w-4" />
-                  Projeto Existente
+                  <span className="hidden sm:inline">Pedido</span> Existente
                 </TabsTrigger>
-              <TabsTrigger value="novo">
+                <TabsTrigger value="novo">
                   <Plus className="mr-2 h-4 w-4" />
-                  Nova Venda
+                  <span className="hidden sm:inline">Novo</span> Pedido
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent value="existente" className="space-y-4 mt-4">
-                {projetos.length === 0 ? (
+                {pedidos.length === 0 ? (
                   <p className="text-center text-muted-foreground py-4">
-                    Você ainda não tem projetos. Crie um novo!
+                    Você ainda não tem pedidos em rascunho. Crie um novo!
                   </p>
                 ) : (
                   <>
                     <div className="space-y-2">
-                      <Label>Selecione um projeto</Label>
-                      <Select value={projetoSelecionado} onValueChange={setProjetoSelecionado}>
+                      <Label>Selecione um pedido</Label>
+                      <Select value={pedidoSelecionado} onValueChange={setPedidoSelecionado}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Escolha um projeto..." />
+                          <SelectValue placeholder="Escolha um pedido..." />
                         </SelectTrigger>
                         <SelectContent>
-                          {projetos.map((projeto) => (
-                            <SelectItem key={projeto.id} value={projeto.id}>
-                              {projeto.nome_projeto}
-                              {projeto.cliente && ` - ${projeto.cliente}`}
+                          {pedidos.map((pedido) => (
+                            <SelectItem key={pedido.id} value={pedido.id}>
+                              {pedido.numero_pedido} - {pedido.cliente_nome}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -340,12 +353,12 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
                     </div>
 
                     <Button
-                      onClick={handleSaveProjetoExistente}
-                      disabled={saving || !projetoSelecionado}
+                      onClick={handleSavePedidoExistente}
+                      disabled={saving || !pedidoSelecionado}
                       className="w-full"
                     >
                       {saving ? <Loader2 className="animate-spin mr-2" /> : null}
-                      Adicionar ao Projeto
+                      Adicionar ao Pedido
                     </Button>
                   </>
                 )}
@@ -353,33 +366,24 @@ const EspecificarDialog = ({ open, onOpenChange, produto }: EspecificarDialogPro
 
               <TabsContent value="novo" className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label>Número da Venda</Label>
-                  <Input
-                    value={novoNomeProjeto}
-                    readOnly
-                    className="bg-muted cursor-not-allowed font-mono"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Gerado automaticamente
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Cliente (opcional)</Label>
+                  <Label>Cliente *</Label>
                   <Input
                     placeholder="Nome do cliente"
                     value={novoCliente}
                     onChange={(e) => setNovoCliente(e.target.value)}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    O número do pedido será gerado automaticamente
+                  </p>
                 </div>
 
                 <Button
-                  onClick={handleSaveNovoProjeto}
-                  disabled={saving || !novoNomeProjeto.trim()}
+                  onClick={handleSaveNovoPedido}
+                  disabled={saving || !novoCliente.trim()}
                   className="w-full"
                 >
                   {saving ? <Loader2 className="animate-spin mr-2" /> : null}
-                  Criar Venda e Adicionar
+                  Criar Pedido
                 </Button>
               </TabsContent>
             </Tabs>

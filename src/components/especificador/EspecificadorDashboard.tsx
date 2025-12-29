@@ -33,6 +33,7 @@ import { toast } from "@/hooks/use-toast";
 import VitrineFilters from "./VitrineFilters";
 import CredenciamentoForm, { CredenciamentoData } from "./CredenciamentoForm";
 import EspecificarDialog from "./EspecificarDialog";
+import OrdersTab from "./OrdersTab";
 import {
   Accordion,
   AccordionContent,
@@ -99,11 +100,7 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
 
   // Modal de especificação
   const [isSpecifyOpen, setIsSpecifyOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<{ id: string; nome: string } | null>(null);
-
-  // Projetos
-  const [projetos, setProjetos] = useState<any[]>([]);
-  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<{ id: string; nome: string; fabrica_id: string } | null>(null);
 
   // Conexões aprovadas para Comissões
   const [approvedConnections, setApprovedConnections] = useState<any[]>([]);
@@ -225,40 +222,6 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
     }
   };
 
-  // Função para buscar projetos
-  const fetchProjects = async () => {
-    if (!especificadorId) return;
-    setProjectsLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("projetos")
-        .select(`
-          *,
-          itens:itens_projeto (
-            id,
-            quantidade,
-            ambiente,
-            created_at,
-            produto:produto_id (
-              id,
-              nome,
-              tipo_produto,
-              fabrica:fabrica_id (nome)
-            )
-          )
-        `)
-        .eq("especificador_id", especificadorId)
-        .order("updated_at", { ascending: false });
-
-      if (error) throw error;
-      setProjetos(data || []);
-    } catch (error) {
-      console.error("Erro ao buscar projetos:", error);
-    } finally {
-      setProjectsLoading(false);
-    }
-  };
-
   // Função para buscar conexões aprovadas com acordos de comissão
   const fetchApprovedConnections = async () => {
     if (!especificadorId) return;
@@ -301,17 +264,16 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
     }
   };
 
-  // Carregar projetos quando especificadorId estiver disponível
+  // Carregar conexões quando especificadorId estiver disponível
   useEffect(() => {
     if (especificadorId) {
-      fetchProjects();
       fetchApprovedConnections();
     }
   }, [especificadorId]);
 
   // Handler para abrir dialog de especificar
   const handleOpenSpecify = (product: Product) => {
-    setSelectedProduct({ id: product.id, nome: product.nome });
+    setSelectedProduct({ id: product.id, nome: product.nome, fabrica_id: product.fabrica_id });
     setIsSpecifyOpen(true);
   };
 
@@ -320,31 +282,6 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
     setIsSpecifyOpen(open);
     if (!open) {
       fetchProjects();
-    }
-  };
-
-  // Handler para deletar item do projeto
-  const handleDeleteItem = async (itemId: string) => {
-    try {
-      const { error } = await supabase.from("itens_projeto").delete().eq("id", itemId);
-      if (error) throw error;
-      toast({ title: "Item removido" });
-      fetchProjects();
-    } catch (error: any) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
-    }
-  };
-
-  // Handler para deletar projeto
-  const handleDeleteProject = async (projetoId: string, nome: string) => {
-    if (!confirm(`Excluir o projeto "${nome}" e todos os itens?`)) return;
-    try {
-      const { error } = await supabase.from("projetos").delete().eq("id", projetoId);
-      if (error) throw error;
-      toast({ title: "Projeto excluído" });
-      fetchProjects();
-    } catch (error: any) {
-      toast({ title: "Erro", description: error.message, variant: "destructive" });
     }
   };
 
@@ -464,55 +401,51 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
   ].filter(Boolean).length;
 
   return (
-    <div className="min-h-screen bg-background p-6 md:p-12 font-sans text-foreground">
-      <header className="flex justify-between items-end mb-12 pb-6 border-b border-border/40">
+    <div className="min-h-screen bg-background p-4 md:p-8 lg:p-12 font-sans text-foreground">
+      {/* Header responsivo */}
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-8 md:mb-12 pb-6 border-b border-border/40">
         <div>
-          <h2 className="text-sm font-sans tracking-[0.2em] uppercase text-muted-foreground mb-2">
+          <h2 className="text-xs md:text-sm font-sans tracking-[0.2em] uppercase text-muted-foreground mb-1 md:mb-2">
             Área do Especificador
           </h2>
-          <h1 className="text-4xl font-serif font-medium text-foreground">Curadoria de Projetos</h1>
+          <h1 className="text-2xl md:text-4xl font-serif font-medium text-foreground">Curadoria de Projetos</h1>
         </div>
-        <div className="flex gap-4">
-          <Button
-            onClick={() => (window.location.href = "/pedidos")}
-            variant="default"
-            className="rounded-full"
-          >
-            <Package className="mr-2 h-4 w-4" />
-            Central de Pedidos
-          </Button>
+        <div className="flex gap-2 md:gap-4 w-full md:w-auto">
           <Button
             onClick={() => (window.location.href = "/profile")}
             variant="outline"
-            className="rounded-full border-border hover:bg-secondary/50"
+            size="sm"
+            className="rounded-full border-border hover:bg-secondary/50 flex-1 md:flex-none"
           >
-            <Settings className="mr-2 h-4 w-4" />
-            Meu Perfil
+            <Settings className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">Meu Perfil</span>
           </Button>
-          <Button onClick={signOut} variant="ghost" className="text-destructive hover:bg-destructive/10 rounded-full">
-            Sair
+          <Button onClick={signOut} variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 rounded-full">
+            <span className="md:hidden">Sair</span>
+            <span className="hidden md:inline">Sair</span>
           </Button>
         </div>
       </header>
 
-      <Tabs defaultValue="marketplace" className="space-y-10">
-        <div className="flex justify-center">
-          <TabsList className="bg-white/80 backdrop-blur p-1.5 rounded-full border border-border/60 shadow-sm inline-flex h-auto">
+      <Tabs defaultValue="marketplace" className="space-y-6 md:space-y-10">
+        <div className="flex justify-center overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0">
+          <TabsList className="bg-white/80 backdrop-blur p-1 md:p-1.5 rounded-full border border-border/60 shadow-sm inline-flex h-auto min-w-max">
             <TabsTrigger
               value="marketplace"
-              className="rounded-full px-8 py-2.5 data-[state=active]:bg-[#103927] data-[state=active]:text-white"
+              className="rounded-full px-4 md:px-8 py-2 md:py-2.5 text-sm md:text-base data-[state=active]:bg-[#103927] data-[state=active]:text-white whitespace-nowrap"
             >
               Vitrine
             </TabsTrigger>
             <TabsTrigger
-              value="projects"
-              className="rounded-full px-8 py-2.5 data-[state=active]:bg-[#103927] data-[state=active]:text-white"
+              value="orders"
+              className="rounded-full px-4 md:px-8 py-2 md:py-2.5 text-sm md:text-base data-[state=active]:bg-[#103927] data-[state=active]:text-white whitespace-nowrap"
             >
-              Meus Projetos
+              <Package className="h-4 w-4 mr-1 md:mr-2" />
+              Pedidos
             </TabsTrigger>
             <TabsTrigger
               value="financial"
-              className="rounded-full px-8 py-2.5 data-[state=active]:bg-[#103927] data-[state=active]:text-white"
+              className="rounded-full px-4 md:px-8 py-2 md:py-2.5 text-sm md:text-base data-[state=active]:bg-[#103927] data-[state=active]:text-white whitespace-nowrap"
             >
               Comissões
             </TabsTrigger>
@@ -678,112 +611,8 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
           )}
         </TabsContent>
 
-        <TabsContent value="projects">
-          {projectsLoading ? (
-            <div className="flex justify-center py-32">
-              <Loader2 className="h-12 w-12 animate-spin text-[#103927]" />
-            </div>
-          ) : projetos.length === 0 ? (
-            <div className="text-center py-32 bg-white/50 rounded-[3rem] border border-dashed">
-              <FolderOpen className="h-16 w-16 mx-auto text-muted-foreground opacity-30 mb-6" />
-              <h3 className="text-2xl font-serif text-foreground">Nenhum projeto ainda</h3>
-              <p className="text-muted-foreground mt-2">
-                Especifique produtos na Vitrine para criar projetos
-              </p>
-            </div>
-          ) : (
-            <Accordion type="single" collapsible className="space-y-4">
-              {projetos.map((projeto) => (
-                <AccordionItem
-                  key={projeto.id}
-                  value={projeto.id}
-                  className="border rounded-xl bg-white px-6"
-                >
-                  <AccordionTrigger className="hover:no-underline py-4">
-                    <div className="flex items-center justify-between w-full mr-4">
-                      <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                          <FileText className="h-6 w-6 text-[#103927]" />
-                        </div>
-                        <div className="text-left">
-                          <h3 className="font-semibold text-lg">{projeto.nome_projeto}</h3>
-                          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                            {projeto.cliente && (
-                              <span className="flex items-center gap-1">
-                                <User className="h-3 w-3" />
-                                {projeto.cliente}
-                              </span>
-                            )}
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              {new Date(projeto.created_at).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <Badge variant="secondary" className="ml-4">
-                        {projeto.itens?.length || 0} {(projeto.itens?.length || 0) === 1 ? 'item' : 'itens'}
-                      </Badge>
-                    </div>
-                  </AccordionTrigger>
-
-                  <AccordionContent className="pb-6">
-                    <div className="border-t pt-4 mt-2">
-                      {(!projeto.itens || projeto.itens.length === 0) ? (
-                        <p className="text-center text-muted-foreground py-8">
-                          Nenhum produto neste projeto.
-                        </p>
-                      ) : (
-                        <div className="space-y-3">
-                          {projeto.itens.map((item: any) => (
-                            <div
-                              key={item.id}
-                              className="flex items-center justify-between p-4 bg-muted/30 rounded-lg"
-                            >
-                              <div className="flex items-center gap-4">
-                                <div className="h-10 w-10 rounded bg-background flex items-center justify-center">
-                                  <Package className="h-5 w-5 text-muted-foreground" />
-                                </div>
-                                <div>
-                                  <p className="font-medium">{item.produto?.nome || 'Produto não encontrado'}</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {item.produto?.fabrica?.nome || 'Fábrica'}
-                                    {item.ambiente && ` • ${item.ambiente}`}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-4">
-                                <Badge variant="outline">Qtd: {item.quantidade}</Badge>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="text-destructive hover:bg-destructive/10"
-                                  onClick={() => handleDeleteItem(item.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      <div className="flex justify-end items-center mt-6 pt-4 border-t">
-                        <Button
-                          variant="ghost"
-                          className="text-destructive hover:bg-destructive/10"
-                          onClick={() => handleDeleteProject(projeto.id, projeto.nome_projeto)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Excluir Projeto
-                        </Button>
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          )}
+        <TabsContent value="orders">
+          <OrdersTab especificadorId={especificadorId} />
         </TabsContent>
 
         <TabsContent value="financial">
