@@ -9,6 +9,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
   Plus,
   Package,
   Settings,
@@ -45,6 +51,7 @@ import {
   PackageCheck,
   TrendingUp,
   User,
+  Send,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import ConexoesComerciais from "./ConexoesComerciais";
@@ -725,55 +732,55 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
         <TabsContent value="orders">
           <div className="space-y-6">
             {/* Cards de estatísticas */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card>
-                <CardContent className="pt-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+              <Card className="bg-white rounded-2xl">
+                <CardContent className="pt-4 pb-4 px-4">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
                       <ShoppingCart className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Total</p>
-                      <p className="text-2xl font-bold">{pedidoStats.total}</p>
+                      <p className="text-xs text-muted-foreground">Total</p>
+                      <p className="text-xl font-bold">{pedidoStats.total}</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-              <Card>
-                <CardContent className="pt-6">
+              <Card className="bg-white rounded-2xl">
+                <CardContent className="pt-4 pb-4 px-4">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
                       <Clock className="h-5 w-5 text-amber-600" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Pendentes</p>
-                      <p className="text-2xl font-bold">{pedidoStats.pendentes}</p>
+                      <p className="text-xs text-muted-foreground">Pendentes</p>
+                      <p className="text-xl font-bold">{pedidoStats.pendentes}</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-              <Card>
-                <CardContent className="pt-6">
+              <Card className="bg-white rounded-2xl">
+                <CardContent className="pt-4 pb-4 px-4">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
                       <Package className="h-5 w-5 text-purple-600" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Em Produção</p>
-                      <p className="text-2xl font-bold">{pedidoStats.emProducao}</p>
+                      <p className="text-xs text-muted-foreground">Em Produção</p>
+                      <p className="text-xl font-bold">{pedidoStats.emProducao}</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-              <Card>
-                <CardContent className="pt-6">
+              <Card className="bg-white rounded-2xl">
+                <CardContent className="pt-4 pb-4 px-4">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center">
                       <TrendingUp className="h-5 w-5 text-emerald-600" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">Vendas</p>
-                      <p className="text-2xl font-bold">
+                      <p className="text-xs text-muted-foreground">Vendas</p>
+                      <p className="text-xl font-bold">
                         {pedidoStats.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                       </p>
                     </div>
@@ -783,25 +790,24 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
             </div>
 
             {/* Filtros */}
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Card className="bg-white rounded-2xl">
+              <CardContent className="pt-4 pb-4">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Buscar por nº pedido, cliente, especificador..."
+                      placeholder="Buscar pedido, cliente ou especificador..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-10"
                     />
                   </div>
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[180px]">
+                    <SelectTrigger className="w-full sm:w-[180px]">
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="todos">Todos os status</SelectItem>
-                      <SelectItem value="rascunho">Rascunho</SelectItem>
+                      <SelectItem value="todos">Todos</SelectItem>
                       <SelectItem value="enviado">Enviado</SelectItem>
                       <SelectItem value="em_producao">Em Produção</SelectItem>
                       <SelectItem value="enviado_cliente">Enviado ao Cliente</SelectItem>
@@ -812,350 +818,234 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
               </CardContent>
             </Card>
 
-            {/* Tabela de Pedidos */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ShoppingCart className="h-5 w-5" />
-                  Pedidos ({filteredPedidos.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {pedidosLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                  </div>
-                ) : filteredPedidos.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Package className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                    <p>Nenhum pedido encontrado</p>
-                  </div>
-                ) : (
-                  <div className="rounded-lg border overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/50">
-                          <TableHead>Nº Pedido</TableHead>
-                          <TableHead>Cliente</TableHead>
-                          <TableHead>Especificador</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Valor</TableHead>
-                          <TableHead>Data</TableHead>
-                          <TableHead className="text-right">Ações</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredPedidos.map((pedido) => {
-                          const statusConfig = getStatusConfig(pedido.status);
-                          return (
-                            <TableRow key={pedido.id} className="cursor-pointer hover:bg-muted/50">
-                              <TableCell 
-                                className="font-mono font-medium" 
-                                onClick={() => {
-                                  setSelectedPedido(pedido);
-                                  setPedidoDetailsOpen(true);
-                                }}
-                              >
-                                {pedido.numero_pedido}
-                              </TableCell>
-                              <TableCell onClick={() => {
-                                setSelectedPedido(pedido);
-                                setPedidoDetailsOpen(true);
-                              }}>
-                                <div>
-                                  <p className="font-medium">{pedido.cliente_nome}</p>
-                                  {pedido.cliente_email && (
-                                    <p className="text-xs text-muted-foreground">{pedido.cliente_email}</p>
+            {/* Lista de pedidos usando Accordion */}
+            {pedidosLoading ? (
+              <div className="flex justify-center py-32">
+                <Loader2 className="h-12 w-12 animate-spin text-[#103927]" />
+              </div>
+            ) : filteredPedidos.length === 0 ? (
+              <div className="text-center py-16 md:py-32 bg-white/50 rounded-[2rem] md:rounded-[3rem] border border-dashed">
+                <ShoppingCart className="h-12 w-12 md:h-16 md:w-16 mx-auto text-muted-foreground opacity-30 mb-4 md:mb-6" />
+                <h3 className="text-xl md:text-2xl font-serif text-foreground">Nenhum pedido encontrado</h3>
+                <p className="text-muted-foreground mt-2 text-sm md:text-base px-4">
+                  Aguarde especificadores enviarem pedidos
+                </p>
+              </div>
+            ) : (
+              <Accordion type="single" collapsible className="space-y-3">
+                {filteredPedidos.map((pedido) => {
+                  const statusConfig = getStatusConfig(pedido.status);
+                  
+                  return (
+                    <AccordionItem
+                      key={pedido.id}
+                      value={pedido.id}
+                      className="border rounded-xl bg-white px-4 md:px-6"
+                    >
+                      <AccordionTrigger className="hover:no-underline py-3 md:py-4">
+                        <div className="flex items-center justify-between w-full mr-2 md:mr-4 gap-2">
+                          <div className="flex items-center gap-3 md:gap-4 flex-1 min-w-0">
+                            <div className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                              <User className="h-5 w-5 md:h-6 md:w-6 text-[#103927]" />
+                            </div>
+                            <div className="text-left min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="font-semibold text-sm md:text-lg truncate">{pedido.numero_pedido}</h3>
+                                <Badge className={`${statusConfig.className} text-xs flex items-center gap-1`}>
+                                  {statusConfig.icon}
+                                  <span className="hidden sm:inline">{statusConfig.label}</span>
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-2 md:gap-3 text-xs md:text-sm text-muted-foreground mt-0.5">
+                                <span className="flex items-center gap-1 truncate">
+                                  <User className="h-3 w-3 flex-shrink-0" />
+                                  <span className="truncate">{pedido.cliente_nome}</span>
+                                </span>
+                                <span className="hidden md:flex items-center gap-1">
+                                  <Building2 className="h-3 w-3" />
+                                  {pedido.especificador?.nome || 'Especificador'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <Badge variant="secondary" className="text-xs flex-shrink-0">
+                            {pedido.itens?.length || 0} {(pedido.itens?.length || 0) === 1 ? 'item' : 'itens'}
+                          </Badge>
+                        </div>
+                      </AccordionTrigger>
+
+                      <AccordionContent className="pb-4 md:pb-6">
+                        <div className="border-t pt-4 mt-2 space-y-4">
+                          {/* Workflow de acompanhamento */}
+                          {pedido.status !== 'rascunho' && pedido.status !== 'cancelado' && (
+                            <div className="bg-muted/30 rounded-xl p-4">
+                              <p className="text-xs text-muted-foreground mb-3 font-medium">Acompanhamento:</p>
+                              <OrderWorkflow pedido={pedido} />
+                              
+                              {/* Info de pagamento */}
+                              {pedido.tipo_pagamento && (
+                                <div className="mt-3 p-3 bg-white rounded-lg border">
+                                  <p className="text-xs text-muted-foreground mb-1">Forma de Pagamento</p>
+                                  <p className="font-medium flex items-center gap-2">
+                                    <CreditCard className="h-4 w-4 text-muted-foreground" />
+                                    {getPaymentOptionById(pedido.tipo_pagamento)?.label || pedido.tipo_pagamento}
+                                  </p>
+                                  {pedido.comprovante_pagamento_url && (
+                                    <a
+                                      href={pedido.comprovante_pagamento_url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs text-primary hover:underline flex items-center gap-1 mt-2"
+                                    >
+                                      <FileText className="h-3 w-3" />
+                                      Ver comprovante de pagamento
+                                    </a>
                                   )}
                                 </div>
-                              </TableCell>
-                              <TableCell onClick={() => {
-                                setSelectedPedido(pedido);
-                                setPedidoDetailsOpen(true);
-                              }}>
-                                {pedido.especificador?.nome || '-'}
-                              </TableCell>
-                              <TableCell onClick={() => {
-                                setSelectedPedido(pedido);
-                                setPedidoDetailsOpen(true);
-                              }}>
-                                <Badge className={statusConfig.className}>
-                                  {statusConfig.icon}
-                                  <span className="ml-1">{statusConfig.label}</span>
-                                </Badge>
-                              </TableCell>
-                              <TableCell onClick={() => {
-                                setSelectedPedido(pedido);
-                                setPedidoDetailsOpen(true);
-                              }}>
-                                {pedido.valor_total
-                                  ? pedido.valor_total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-                                  : '-'}
-                              </TableCell>
-                              <TableCell onClick={() => {
-                                setSelectedPedido(pedido);
-                                setPedidoDetailsOpen(true);
-                              }}>
-                                {format(new Date(pedido.created_at), 'dd/MM/yyyy', { locale: ptBR })}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon">
-                                      <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => {
+                              )}
+                              
+                              {/* Botões de ação */}
+                              <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t">
+                                {pedido.status === 'enviado' && !pedido.etapa_pagamento && pedido.tipo_pagamento && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
                                       setSelectedPedido(pedido);
-                                      setPedidoDetailsOpen(true);
-                                    }}>
-                                      <Eye className="h-4 w-4 mr-2" />
-                                      Ver Detalhes
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Dialog de Detalhes do Pedido */}
-          <Dialog open={pedidoDetailsOpen} onOpenChange={setPedidoDetailsOpen}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Pedido {selectedPedido?.numero_pedido}
-                </DialogTitle>
-              </DialogHeader>
-
-              {selectedPedido && (
-                <div className="space-y-6">
-                  {/* Status e datas */}
-                  <div className="flex items-center justify-between">
-                    <Badge className={getStatusConfig(selectedPedido.status).className}>
-                      {getStatusConfig(selectedPedido.status).icon}
-                      <span className="ml-1">{getStatusConfig(selectedPedido.status).label}</span>
-                    </Badge>
-                    <span className="text-sm text-muted-foreground">
-                      Criado em {format(new Date(selectedPedido.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                    </span>
-                  </div>
-
-                  {/* Workflow de etapas */}
-                  {selectedPedido.status !== 'rascunho' && selectedPedido.status !== 'cancelado' && (
-                    <Card className="bg-muted/30">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-sm">Acompanhamento do Pedido</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <OrderWorkflow pedido={selectedPedido} />
-                        
-                        {/* Informações de pagamento */}
-                        {selectedPedido.tipo_pagamento && (
-                          <div className="mt-4 p-3 bg-white rounded-lg border">
-                            <p className="text-xs text-muted-foreground mb-1">Forma de Pagamento</p>
-                            <p className="font-medium flex items-center gap-2">
-                              <CreditCard className="h-4 w-4 text-muted-foreground" />
-                              {getPaymentOptionById(selectedPedido.tipo_pagamento)?.label || selectedPedido.tipo_pagamento}
-                            </p>
-                            {selectedPedido.comprovante_pagamento_url && (
-                              <a
-                                href={selectedPedido.comprovante_pagamento_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs text-primary hover:underline flex items-center gap-1 mt-2"
-                              >
-                                <FileText className="h-3 w-3" />
-                                Ver comprovante de pagamento
-                              </a>
-                            )}
-                          </div>
-                        )}
-                        
-                        {/* Botões de ação para avançar etapas */}
-                        <div className="flex flex-wrap gap-2 mt-6 pt-4 border-t">
-                          {selectedPedido.status === 'enviado' && !selectedPedido.etapa_pagamento && selectedPedido.tipo_pagamento && (
-                            <Button
-                              onClick={() => setPaymentDialogOpen(true)}
-                              className="bg-emerald-600 hover:bg-emerald-700"
-                            >
-                              <CreditCard className="h-4 w-4 mr-2" />
-                              Confirmar Pagamento
-                            </Button>
-                          )}
-                          {selectedPedido.status === 'enviado' && !selectedPedido.tipo_pagamento && (
-                            <div className="text-sm text-amber-600 flex items-center gap-2 p-2 bg-amber-50 rounded-lg">
-                              <Clock className="h-4 w-4" />
-                              Aguardando especificador escolher forma de pagamento
+                                      setPaymentDialogOpen(true);
+                                    }}
+                                    className="bg-emerald-600 hover:bg-emerald-700"
+                                  >
+                                    <CreditCard className="h-4 w-4 mr-2" />
+                                    Confirmar Pagamento
+                                  </Button>
+                                )}
+                                {pedido.status === 'enviado' && !pedido.tipo_pagamento && (
+                                  <div className="text-sm text-amber-600 flex items-center gap-2 p-2 bg-amber-50 rounded-lg">
+                                    <Clock className="h-4 w-4" />
+                                    Aguardando especificador escolher forma de pagamento
+                                  </div>
+                                )}
+                                {pedido.etapa_pagamento && !pedido.etapa_fabricacao && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleAvancarEtapa(pedido.id, 'fabricacao')}
+                                    className="bg-purple-600 hover:bg-purple-700"
+                                  >
+                                    <Hammer className="h-4 w-4 mr-2" />
+                                    Iniciar Fabricação
+                                  </Button>
+                                )}
+                                {pedido.etapa_fabricacao && !pedido.etapa_expedicao && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleAvancarEtapa(pedido.id, 'expedicao')}
+                                    className="bg-cyan-600 hover:bg-cyan-700"
+                                  >
+                                    <Truck className="h-4 w-4 mr-2" />
+                                    Confirmar Expedição
+                                  </Button>
+                                )}
+                                {pedido.etapa_expedicao && !pedido.data_entrega && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleAvancarEtapa(pedido.id, 'entrega')}
+                                    className="bg-green-600 hover:bg-green-700"
+                                  >
+                                    <PackageCheck className="h-4 w-4 mr-2" />
+                                    Confirmar Entrega
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                           )}
-                          {selectedPedido.etapa_pagamento && !selectedPedido.etapa_fabricacao && (
-                            <Button
-                              onClick={() => handleAvancarEtapa(selectedPedido.id, 'fabricacao')}
-                              className="bg-purple-600 hover:bg-purple-700"
-                            >
-                              <Hammer className="h-4 w-4 mr-2" />
-                              Iniciar Fabricação
-                            </Button>
-                          )}
-                          {selectedPedido.etapa_fabricacao && !selectedPedido.etapa_expedicao && (
-                            <Button
-                              onClick={() => handleAvancarEtapa(selectedPedido.id, 'expedicao')}
-                              className="bg-cyan-600 hover:bg-cyan-700"
-                            >
-                              <Truck className="h-4 w-4 mr-2" />
-                              Confirmar Expedição
-                            </Button>
-                          )}
-                          {selectedPedido.etapa_expedicao && !selectedPedido.data_entrega && (
-                            <Button
-                              onClick={() => handleAvancarEtapa(selectedPedido.id, 'entrega')}
-                              className="bg-green-600 hover:bg-green-700"
-                            >
-                              <PackageCheck className="h-4 w-4 mr-2" />
-                              Confirmar Entrega
-                            </Button>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
 
-                  {/* Informações do cliente */}
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <User className="h-4 w-4" />
-                        Cliente
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-1">
-                      <p className="font-medium">{selectedPedido.cliente_nome}</p>
-                      {selectedPedido.cliente_email && <p className="text-sm text-muted-foreground">{selectedPedido.cliente_email}</p>}
-                      {selectedPedido.cliente_telefone && <p className="text-sm text-muted-foreground">{selectedPedido.cliente_telefone}</p>}
-                    </CardContent>
-                  </Card>
-
-                  {/* Especificador */}
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <User className="h-4 w-4" />
-                        Especificador
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="font-medium">{selectedPedido.especificador?.nome || '-'}</p>
-                      {selectedPedido.especificador?.email && (
-                        <p className="text-sm text-muted-foreground">{selectedPedido.especificador.email}</p>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  {/* Itens do pedido */}
-                  {selectedPedido.itens && selectedPedido.itens.length > 0 && (
-                    <Card>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm flex items-center gap-2">
-                          <Package className="h-4 w-4" />
-                          Itens ({selectedPedido.itens.length})
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          {selectedPedido.itens.map((item) => (
-                            <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                              <div>
-                                <p className="font-medium">{item.produto?.nome || 'Produto não encontrado'}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  {item.produto?.tipo_produto} • Qtd: {item.quantidade}
-                                </p>
-                              </div>
+                          {/* Info do pedido */}
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                            <div>
+                              <p className="text-xs text-muted-foreground">Especificador</p>
+                              <p className="font-medium">{pedido.especificador?.nome || '-'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">Data</p>
                               <p className="font-medium">
-                                {item.preco_total?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || '-'}
+                                {format(new Date(pedido.created_at), "dd/MM/yyyy", { locale: ptBR })}
                               </p>
                             </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  {/* Valores */}
-                  <Card>
-                    <CardContent className="pt-6">
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Valor Total</span>
-                          <span className="font-bold text-lg">
-                            {selectedPedido.valor_total?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || '-'}
-                          </span>
-                        </div>
-                        {selectedPedido.percentual_comissao && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Comissão ({selectedPedido.percentual_comissao}%)</span>
-                            <span>
-                              {selectedPedido.valor_comissao?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || '-'}
-                            </span>
+                            <div>
+                              <p className="text-xs text-muted-foreground">Cliente</p>
+                              <p className="font-medium">{pedido.cliente_nome}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">Valor</p>
+                              <p className="font-medium">
+                                {(pedido.valor_total || 0) > 0 
+                                  ? (pedido.valor_total || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                                  : 'A definir'
+                                }
+                              </p>
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
 
-                  {/* Observações */}
-                  {selectedPedido.observacoes && (
-                    <Card>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-sm">Observações</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-sm text-muted-foreground">{selectedPedido.observacoes}</p>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              )}
-            </DialogContent>
-          </Dialog>
+                          {/* Itens */}
+                          {pedido.itens && pedido.itens.length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-xs text-muted-foreground font-medium">Itens do pedido:</p>
+                              {pedido.itens.map((item) => (
+                                <div
+                                  key={item.id}
+                                  className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
+                                >
+                                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                                    <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                    <div className="min-w-0">
+                                      <p className="font-medium text-sm truncate">{item.produto?.nome || 'Produto'}</p>
+                                      {item.observacoes && (
+                                        <p className="text-xs text-muted-foreground truncate">{item.observacoes}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 flex-shrink-0">
+                                    <Badge variant="outline" className="text-xs">Qtd: {item.quantidade}</Badge>
+                                    <span className="text-sm font-medium">
+                                      {item.preco_total?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || '-'}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
 
-          {/* Dialog de Pagamento */}
-          {selectedPedido && (
-            <PaymentStepDialog
-              open={paymentDialogOpen}
-              onOpenChange={setPaymentDialogOpen}
-              pedidoId={selectedPedido.id}
-              pedidoNumero={selectedPedido.numero_pedido}
-              availableOptions={fabricaOpcoesPagamento}
-              onSuccess={() => {
-                fetchPedidos();
-                // Recarregar pedido selecionado
-                if (selectedPedido) {
-                  supabase
-                    .from('pedidos')
-                    .select(`*, especificador:especificador_id (id, nome, email), itens:itens_pedido (id, quantidade, preco_unitario, preco_total, observacoes, produto:produto_id (id, nome, tipo_produto))`)
-                    .eq('id', selectedPedido.id)
-                    .maybeSingle()
-                    .then(({ data }) => { if (data) setSelectedPedido(data); });
-                }
-              }}
-              mode="confirm"
-              currentPaymentType={selectedPedido.tipo_pagamento}
-              currentProofUrl={selectedPedido.comprovante_pagamento_url}
-            />
-          )}
+                          {/* Status atual */}
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground pt-2 border-t">
+                            {statusConfig.icon}
+                            <span>{statusConfig.label}</span>
+                          </div>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  );
+                })}
+              </Accordion>
+            )}
+
+            {/* Dialog de Pagamento */}
+            {selectedPedido && (
+              <PaymentStepDialog
+                open={paymentDialogOpen}
+                onOpenChange={setPaymentDialogOpen}
+                pedidoId={selectedPedido.id}
+                pedidoNumero={selectedPedido.numero_pedido}
+                availableOptions={fabricaOpcoesPagamento}
+                onSuccess={() => {
+                  fetchPedidos();
+                }}
+                mode="confirm"
+                currentPaymentType={selectedPedido.tipo_pagamento}
+                currentProofUrl={selectedPedido.comprovante_pagamento_url}
+              />
+            )}
+          </div>
         </TabsContent>
-
-        {/* ABA CONEXÕES COMERCIAIS */}
         <TabsContent value="partners">
           {fabricaId ? (
             <ConexoesComerciais fabricaId={fabricaId} />
