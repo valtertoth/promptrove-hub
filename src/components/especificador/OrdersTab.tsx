@@ -69,7 +69,7 @@ interface Pedido {
     id: string;
     nome: string;
     logo_url: string | null;
-    opcoes_pagamento: string[];
+    opcoes_pagamento: any; // Json from Supabase
   };
   itens?: {
     id: string;
@@ -397,7 +397,7 @@ const OrdersTab = ({ especificadorId }: OrdersTabProps) => {
                       <OrderWorkflow pedido={pedido} />
                       
                       {/* Botão para escolher pagamento se ainda não escolheu */}
-                      {pedido.status === 'enviado' && !pedido.tipo_pagamento && pedido.fabrica?.opcoes_pagamento && (pedido.fabrica.opcoes_pagamento as string[]).length > 0 && (
+                      {pedido.status === 'enviado' && !pedido.tipo_pagamento && pedido.fabrica?.opcoes_pagamento && (Array.isArray(pedido.fabrica.opcoes_pagamento) ? pedido.fabrica.opcoes_pagamento : []).length > 0 && (
                         <Button
                           size="sm"
                           className="mt-4 bg-emerald-600 hover:bg-emerald-700"
@@ -545,7 +545,7 @@ const OrdersTab = ({ especificadorId }: OrdersTabProps) => {
           onOpenChange={setPaymentDialogOpen}
           pedidoId={selectedPedido.id}
           pedidoNumero={selectedPedido.numero_pedido}
-          availableOptions={(selectedPedido.fabrica?.opcoes_pagamento as string[]) || []}
+          availableOptions={Array.isArray(selectedPedido.fabrica?.opcoes_pagamento) ? selectedPedido.fabrica.opcoes_pagamento : []}
           onSuccess={fetchPedidos}
           mode="select"
           currentPaymentType={selectedPedido.tipo_pagamento}
