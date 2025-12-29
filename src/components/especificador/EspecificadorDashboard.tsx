@@ -277,12 +277,9 @@ const EspecificadorDashboard = ({ userId }: EspecificadorDashboardProps) => {
     setIsSpecifyOpen(true);
   };
 
-  // Handler para fechar dialog e atualizar projetos
+  // Handler para fechar dialog
   const handleSpecifyClose = (open: boolean) => {
     setIsSpecifyOpen(open);
-    if (!open) {
-      fetchProjects();
-    }
   };
 
   const getConnectionStatus = (factoryId: string) => {
