@@ -600,6 +600,7 @@ export type Database = {
           produto_id: string
           projeto_id: string
           quantidade: number
+          tipo_entrega: string | null
         }
         Insert: {
           ambiente?: string | null
@@ -609,6 +610,7 @@ export type Database = {
           produto_id: string
           projeto_id: string
           quantidade?: number
+          tipo_entrega?: string | null
         }
         Update: {
           ambiente?: string | null
@@ -618,6 +620,7 @@ export type Database = {
           produto_id?: string
           projeto_id?: string
           quantidade?: number
+          tipo_entrega?: string | null
         }
         Relationships: [
           {
@@ -748,6 +751,7 @@ export type Database = {
           observacoes: string | null
           percentual_comissao: number | null
           status: string
+          tipo_entrega: string | null
           updated_at: string | null
           valor_comissao: number | null
           valor_total: number | null
@@ -770,6 +774,7 @@ export type Database = {
           observacoes?: string | null
           percentual_comissao?: number | null
           status?: string
+          tipo_entrega?: string | null
           updated_at?: string | null
           valor_comissao?: number | null
           valor_total?: number | null
@@ -792,6 +797,7 @@ export type Database = {
           observacoes?: string | null
           percentual_comissao?: number | null
           status?: string
+          tipo_entrega?: string | null
           updated_at?: string | null
           valor_comissao?: number | null
           valor_total?: number | null
