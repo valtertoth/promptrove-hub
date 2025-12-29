@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import OrderWorkflow from '@/components/shared/OrderWorkflow';
 
 interface Pedido {
   id: string;
@@ -55,6 +56,11 @@ interface Pedido {
   valor_total: number | null;
   valor_comissao: number | null;
   created_at: string;
+  data_envio: string | null;
+  etapa_pagamento: string | null;
+  etapa_fabricacao: string | null;
+  etapa_expedicao: string | null;
+  data_entrega: string | null;
   fabrica?: {
     id: string;
     nome: string;
@@ -377,9 +383,17 @@ const OrdersTab = ({ especificadorId }: OrdersTabProps) => {
                 </AccordionTrigger>
 
                 <AccordionContent className="pb-4 md:pb-6">
-                  <div className="border-t pt-4 mt-2">
+                  <div className="border-t pt-4 mt-2 space-y-4">
+                    {/* Workflow de acompanhamento - apenas para pedidos enviados */}
+                    {pedido.status !== 'rascunho' && pedido.status !== 'cancelado' && (
+                      <div className="bg-muted/30 rounded-xl p-4">
+                        <p className="text-xs text-muted-foreground mb-3 font-medium">Acompanhamento:</p>
+                        <OrderWorkflow pedido={pedido} />
+                      </div>
+                    )}
+
                     {/* Info do pedido */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4 text-sm">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                       <div>
                         <p className="text-xs text-muted-foreground">Fábrica</p>
                         <p className="font-medium">{pedido.fabrica?.nome}</p>

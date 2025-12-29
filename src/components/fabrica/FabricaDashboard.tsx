@@ -434,10 +434,6 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
           <p className="text-muted-foreground mt-2 font-light">Gestão de acervo e curadoria de materiais.</p>
         </div>
         <div className="flex gap-3">
-          <Button onClick={() => window.location.href = '/pedidos'} variant="default" className="rounded-xl">
-            <Package className="mr-2 h-4 w-4" />
-            Central de Pedidos
-          </Button>
           <Button onClick={() => window.location.href = '/profile'} variant="outline" className="rounded-xl">
             <Settings className="mr-2 h-4 w-4" />
             Meu Perfil
@@ -449,33 +445,57 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
       </header>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-        <TabsList className="bg-white/50 backdrop-blur-sm p-1 rounded-full border border-border shadow-sm inline-flex">
+        <TabsList className="bg-white/50 backdrop-blur-sm p-1 rounded-full border border-border shadow-sm inline-flex flex-wrap gap-1">
           <TabsTrigger
             value="overview"
-            className="rounded-full px-6 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-300"
+            className="rounded-full px-4 md:px-6 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-300"
           >
             Visão Geral
           </TabsTrigger>
           <TabsTrigger
+            value="orders"
+            className="rounded-full px-4 md:px-6 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-300"
+          >
+            <Package className="mr-2 h-4 w-4" />
+            Pedidos
+          </TabsTrigger>
+          <TabsTrigger
             value="products"
-            className="rounded-full px-6 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-300"
+            className="rounded-full px-4 md:px-6 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-300"
           >
             Portfólio
           </TabsTrigger>
           <TabsTrigger
             value="partners"
-            className="rounded-full px-6 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-300"
+            className="rounded-full px-4 md:px-6 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-300"
           >
             <Handshake className="mr-2 h-4 w-4" />
-            Conexões Comerciais
+            Conexões
           </TabsTrigger>
           <TabsTrigger
             value="new-product"
-            className="rounded-full px-6 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-300"
+            className="rounded-full px-4 md:px-6 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-all duration-300"
           >
             {editingId ? "Editor" : "Novo Produto"}
           </TabsTrigger>
         </TabsList>
+
+        {/* ABA PEDIDOS */}
+        <TabsContent value="orders">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-semibold">Central de Pedidos</h2>
+              <Button variant="outline" onClick={() => window.location.href = '/pedidos'}>
+                Ver Tela Completa
+              </Button>
+            </div>
+            <p className="text-muted-foreground">Gerencie pedidos recebidos de especificadores. Clique em "Ver Tela Completa" para acessar todas as funcionalidades.</p>
+            <Button onClick={() => window.location.href = '/pedidos'} className="w-full md:w-auto">
+              <Package className="mr-2 h-4 w-4" />
+              Abrir Central de Pedidos
+            </Button>
+          </div>
+        </TabsContent>
 
         {/* ABA CONEXÕES COMERCIAIS */}
         <TabsContent value="partners">
