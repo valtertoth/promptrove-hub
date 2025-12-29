@@ -33,6 +33,18 @@ import {
   MapPin,
   Palette,
   Handshake,
+  ShoppingCart,
+  Clock,
+  CheckCircle2,
+  Truck,
+  FileText,
+  MoreHorizontal,
+  Eye,
+  CreditCard,
+  Hammer,
+  PackageCheck,
+  TrendingUp,
+  User,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import ConexoesComerciais from "./ConexoesComerciais";
@@ -58,9 +70,67 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import OrderWorkflow from "@/components/shared/OrderWorkflow";
 
 interface FabricaDashboardProps {
   userId: string;
+}
+
+interface Pedido {
+  id: string;
+  numero_pedido: string;
+  status: string;
+  cliente_nome: string;
+  cliente_email: string | null;
+  cliente_telefone: string | null;
+  valor_total: number | null;
+  valor_comissao: number | null;
+  percentual_comissao: number | null;
+  created_at: string;
+  data_envio: string | null;
+  data_aprovacao: string | null;
+  data_entrega: string | null;
+  etapa_pagamento: string | null;
+  etapa_fabricacao: string | null;
+  etapa_expedicao: string | null;
+  observacoes: string | null;
+  especificador?: {
+    id: string;
+    nome: string;
+    email: string;
+  };
+  fabrica?: {
+    id: string;
+    nome: string;
+  };
+  itens?: {
+    id: string;
+    quantidade: number;
+    preco_unitario: number;
+    preco_total: number;
+    observacoes: string | null;
+    produto: {
+      id: string;
+      nome: string;
+      tipo_produto: string | null;
+    };
+  }[];
 }
 
 interface MaterialData {
@@ -143,6 +213,20 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
   // Estado para guardar o fabrica_id
   const [fabricaId, setFabricaId] = useState<string | null>(null);
   
+  // Estados para Pedidos
+  const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [pedidosLoading, setPedidosLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('todos');
+  const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
+  const [pedidoDetailsOpen, setPedidoDetailsOpen] = useState(false);
+  const [pedidoStats, setPedidoStats] = useState({
+    total: 0,
+    pendentes: 0,
+    emProducao: 0,
+    valorTotal: 0,
+  });
+  
   // Formulário Produto
   const [newProduct, setNewProduct] = useState({
     nome: "",
@@ -157,6 +241,13 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
     fetchConnections();
     fetchTiposEAmbientes();
   }, []);
+
+  // Buscar pedidos quando fabricaId estiver disponível
+  useEffect(() => {
+    if (fabricaId) {
+      fetchPedidos();
+    }
+  }, [fabricaId]);
 
   const fetchTiposEAmbientes = async () => {
     const [tiposRes, ambientesRes, categoriasRes] = await Promise.all([
@@ -213,6 +304,144 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
       .order("created_at", { ascending: false });
     if (data) setConnections(data);
   };
+
+  const fetchPedidos = async () => {
+    if (!fabricaId) return;
+    setPedidosLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('pedidos')
+        .select(`
+          *,
+          especificador:especificador_id (id, nome, email),
+          itens:itens_pedido (
+            id,
+            quantidade,
+            preco_unitario,
+            preco_total,
+            observacoes,
+            produto:produto_id (id, nome, tipo_produto)
+          )
+        `)
+        .eq('fabrica_id', fabricaId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setPedidos(data || []);
+      
+      // Calcular estatísticas
+      const total = data?.length || 0;
+      const pendentes = data?.filter(p => ['rascunho', 'enviado', 'em_analise'].includes(p.status)).length || 0;
+      const emProducao = data?.filter(p => ['aprovado', 'em_producao', 'enviado_cliente'].includes(p.status)).length || 0;
+      const valorTotal = data?.filter(p => p.status === 'entregue').reduce((sum, p) => sum + (p.valor_total || 0), 0) || 0;
+      
+      setPedidoStats({ total, pendentes, emProducao, valorTotal });
+    } catch (error: any) {
+      console.error('Erro ao buscar pedidos:', error);
+    } finally {
+      setPedidosLoading(false);
+    }
+  };
+
+  const getStatusConfig = (status: string) => {
+    const statusMap: Record<string, { label: string; className: string; icon: React.ReactNode }> = {
+      rascunho: { label: 'Rascunho', className: 'bg-gray-100 text-gray-600', icon: <FileText className="h-3 w-3" /> },
+      enviado: { label: 'Enviado', className: 'bg-blue-100 text-blue-600', icon: <Clock className="h-3 w-3" /> },
+      em_analise: { label: 'Em Análise', className: 'bg-amber-100 text-amber-600', icon: <Clock className="h-3 w-3" /> },
+      aprovado: { label: 'Aprovado', className: 'bg-emerald-100 text-emerald-600', icon: <CheckCircle2 className="h-3 w-3" /> },
+      em_producao: { label: 'Em Produção', className: 'bg-purple-100 text-purple-600', icon: <Package className="h-3 w-3" /> },
+      enviado_cliente: { label: 'Enviado ao Cliente', className: 'bg-cyan-100 text-cyan-600', icon: <Truck className="h-3 w-3" /> },
+      entregue: { label: 'Entregue', className: 'bg-green-500 text-white', icon: <CheckCircle2 className="h-3 w-3" /> },
+      cancelado: { label: 'Cancelado', className: 'bg-red-100 text-red-600', icon: <X className="h-3 w-3" /> },
+    };
+    return statusMap[status] || { label: status, className: 'bg-gray-100 text-gray-600', icon: null };
+  };
+
+  const handleAvancarEtapa = async (pedidoId: string, etapa: 'pagamento' | 'fabricacao' | 'expedicao' | 'entrega') => {
+    try {
+      const updateData: any = {};
+      let newStatus = '';
+      
+      switch (etapa) {
+        case 'pagamento':
+          updateData.etapa_pagamento = new Date().toISOString();
+          updateData.status = 'em_producao';
+          newStatus = 'Pagamento confirmado';
+          break;
+        case 'fabricacao':
+          updateData.etapa_fabricacao = new Date().toISOString();
+          newStatus = 'Fabricação iniciada';
+          break;
+        case 'expedicao':
+          updateData.etapa_expedicao = new Date().toISOString();
+          updateData.status = 'enviado_cliente';
+          newStatus = 'Produto expedido';
+          break;
+        case 'entrega':
+          updateData.data_entrega = new Date().toISOString();
+          updateData.status = 'entregue';
+          newStatus = 'Entrega confirmada';
+          break;
+      }
+
+      const { error } = await supabase
+        .from('pedidos')
+        .update(updateData)
+        .eq('id', pedidoId);
+
+      if (error) throw error;
+
+      toast({
+        title: newStatus,
+        description: 'Etapa atualizada com sucesso',
+        className: 'bg-emerald-600 text-white border-none',
+      });
+
+      fetchPedidos();
+      
+      // Atualizar o pedido selecionado se o dialog estiver aberto
+      if (selectedPedido?.id === pedidoId) {
+        const { data } = await supabase
+          .from('pedidos')
+          .select(`
+            *,
+            especificador:especificador_id (id, nome, email),
+            itens:itens_pedido (
+              id,
+              quantidade,
+              preco_unitario,
+              preco_total,
+              observacoes,
+              produto:produto_id (id, nome, tipo_produto)
+            )
+          `)
+          .eq('id', pedidoId)
+          .maybeSingle();
+        
+        if (data) setSelectedPedido(data);
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const filteredPedidos = pedidos.filter(p => {
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      const matches = 
+        p.numero_pedido.toLowerCase().includes(query) ||
+        p.cliente_nome.toLowerCase().includes(query) ||
+        p.especificador?.nome?.toLowerCase().includes(query);
+      if (!matches) return false;
+    }
+    if (statusFilter !== 'todos' && p.status !== statusFilter) return false;
+    return true;
+  });
 
   // --- ACTIONS PARCEIROS (NEGOCIAÇÃO) ---
   const openApprovalModal = (conn: ConnectionRequest) => {
@@ -483,18 +712,381 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
         {/* ABA PEDIDOS */}
         <TabsContent value="orders">
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-semibold">Central de Pedidos</h2>
-              <Button variant="outline" onClick={() => window.location.href = '/pedidos'}>
-                Ver Tela Completa
-              </Button>
+            {/* Cards de estatísticas */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <ShoppingCart className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total</p>
+                      <p className="text-2xl font-bold">{pedidoStats.total}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
+                      <Clock className="h-5 w-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Pendentes</p>
+                      <p className="text-2xl font-bold">{pedidoStats.pendentes}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
+                      <Package className="h-5 w-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Em Produção</p>
+                      <p className="text-2xl font-bold">{pedidoStats.emProducao}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                      <TrendingUp className="h-5 w-5 text-emerald-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Vendas</p>
+                      <p className="text-2xl font-bold">
+                        {pedidoStats.valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-            <p className="text-muted-foreground">Gerencie pedidos recebidos de especificadores. Clique em "Ver Tela Completa" para acessar todas as funcionalidades.</p>
-            <Button onClick={() => window.location.href = '/pedidos'} className="w-full md:w-auto">
-              <Package className="mr-2 h-4 w-4" />
-              Abrir Central de Pedidos
-            </Button>
+
+            {/* Filtros */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar por nº pedido, cliente, especificador..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todos">Todos os status</SelectItem>
+                      <SelectItem value="rascunho">Rascunho</SelectItem>
+                      <SelectItem value="enviado">Enviado</SelectItem>
+                      <SelectItem value="em_producao">Em Produção</SelectItem>
+                      <SelectItem value="enviado_cliente">Enviado ao Cliente</SelectItem>
+                      <SelectItem value="entregue">Entregue</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Tabela de Pedidos */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ShoppingCart className="h-5 w-5" />
+                  Pedidos ({filteredPedidos.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {pedidosLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  </div>
+                ) : filteredPedidos.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Package className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                    <p>Nenhum pedido encontrado</p>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead>Nº Pedido</TableHead>
+                          <TableHead>Cliente</TableHead>
+                          <TableHead>Especificador</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Valor</TableHead>
+                          <TableHead>Data</TableHead>
+                          <TableHead className="text-right">Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredPedidos.map((pedido) => {
+                          const statusConfig = getStatusConfig(pedido.status);
+                          return (
+                            <TableRow key={pedido.id} className="cursor-pointer hover:bg-muted/50">
+                              <TableCell 
+                                className="font-mono font-medium" 
+                                onClick={() => {
+                                  setSelectedPedido(pedido);
+                                  setPedidoDetailsOpen(true);
+                                }}
+                              >
+                                {pedido.numero_pedido}
+                              </TableCell>
+                              <TableCell onClick={() => {
+                                setSelectedPedido(pedido);
+                                setPedidoDetailsOpen(true);
+                              }}>
+                                <div>
+                                  <p className="font-medium">{pedido.cliente_nome}</p>
+                                  {pedido.cliente_email && (
+                                    <p className="text-xs text-muted-foreground">{pedido.cliente_email}</p>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell onClick={() => {
+                                setSelectedPedido(pedido);
+                                setPedidoDetailsOpen(true);
+                              }}>
+                                {pedido.especificador?.nome || '-'}
+                              </TableCell>
+                              <TableCell onClick={() => {
+                                setSelectedPedido(pedido);
+                                setPedidoDetailsOpen(true);
+                              }}>
+                                <Badge className={statusConfig.className}>
+                                  {statusConfig.icon}
+                                  <span className="ml-1">{statusConfig.label}</span>
+                                </Badge>
+                              </TableCell>
+                              <TableCell onClick={() => {
+                                setSelectedPedido(pedido);
+                                setPedidoDetailsOpen(true);
+                              }}>
+                                {pedido.valor_total
+                                  ? pedido.valor_total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                                  : '-'}
+                              </TableCell>
+                              <TableCell onClick={() => {
+                                setSelectedPedido(pedido);
+                                setPedidoDetailsOpen(true);
+                              }}>
+                                {format(new Date(pedido.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => {
+                                      setSelectedPedido(pedido);
+                                      setPedidoDetailsOpen(true);
+                                    }}>
+                                      <Eye className="h-4 w-4 mr-2" />
+                                      Ver Detalhes
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
+
+          {/* Dialog de Detalhes do Pedido */}
+          <Dialog open={pedidoDetailsOpen} onOpenChange={setPedidoDetailsOpen}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Pedido {selectedPedido?.numero_pedido}
+                </DialogTitle>
+              </DialogHeader>
+
+              {selectedPedido && (
+                <div className="space-y-6">
+                  {/* Status e datas */}
+                  <div className="flex items-center justify-between">
+                    <Badge className={getStatusConfig(selectedPedido.status).className}>
+                      {getStatusConfig(selectedPedido.status).icon}
+                      <span className="ml-1">{getStatusConfig(selectedPedido.status).label}</span>
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      Criado em {format(new Date(selectedPedido.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    </span>
+                  </div>
+
+                  {/* Workflow de etapas */}
+                  {selectedPedido.status !== 'rascunho' && selectedPedido.status !== 'cancelado' && (
+                    <Card className="bg-muted/30">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Acompanhamento do Pedido</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <OrderWorkflow pedido={selectedPedido} />
+                        
+                        {/* Botões de ação para avançar etapas */}
+                        <div className="flex flex-wrap gap-2 mt-6 pt-4 border-t">
+                          {selectedPedido.status === 'enviado' && !selectedPedido.etapa_pagamento && (
+                            <Button
+                              onClick={() => handleAvancarEtapa(selectedPedido.id, 'pagamento')}
+                              className="bg-emerald-600 hover:bg-emerald-700"
+                            >
+                              <CreditCard className="h-4 w-4 mr-2" />
+                              Confirmar Pagamento
+                            </Button>
+                          )}
+                          {selectedPedido.etapa_pagamento && !selectedPedido.etapa_fabricacao && (
+                            <Button
+                              onClick={() => handleAvancarEtapa(selectedPedido.id, 'fabricacao')}
+                              className="bg-purple-600 hover:bg-purple-700"
+                            >
+                              <Hammer className="h-4 w-4 mr-2" />
+                              Iniciar Fabricação
+                            </Button>
+                          )}
+                          {selectedPedido.etapa_fabricacao && !selectedPedido.etapa_expedicao && (
+                            <Button
+                              onClick={() => handleAvancarEtapa(selectedPedido.id, 'expedicao')}
+                              className="bg-cyan-600 hover:bg-cyan-700"
+                            >
+                              <Truck className="h-4 w-4 mr-2" />
+                              Confirmar Expedição
+                            </Button>
+                          )}
+                          {selectedPedido.etapa_expedicao && !selectedPedido.data_entrega && (
+                            <Button
+                              onClick={() => handleAvancarEtapa(selectedPedido.id, 'entrega')}
+                              className="bg-green-600 hover:bg-green-700"
+                            >
+                              <PackageCheck className="h-4 w-4 mr-2" />
+                              Confirmar Entrega
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Informações do cliente */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        Cliente
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-1">
+                      <p className="font-medium">{selectedPedido.cliente_nome}</p>
+                      {selectedPedido.cliente_email && <p className="text-sm text-muted-foreground">{selectedPedido.cliente_email}</p>}
+                      {selectedPedido.cliente_telefone && <p className="text-sm text-muted-foreground">{selectedPedido.cliente_telefone}</p>}
+                    </CardContent>
+                  </Card>
+
+                  {/* Especificador */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        Especificador
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="font-medium">{selectedPedido.especificador?.nome || '-'}</p>
+                      {selectedPedido.especificador?.email && (
+                        <p className="text-sm text-muted-foreground">{selectedPedido.especificador.email}</p>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Itens do pedido */}
+                  {selectedPedido.itens && selectedPedido.itens.length > 0 && (
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <Package className="h-4 w-4" />
+                          Itens ({selectedPedido.itens.length})
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          {selectedPedido.itens.map((item) => (
+                            <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                              <div>
+                                <p className="font-medium">{item.produto?.nome || 'Produto não encontrado'}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {item.produto?.tipo_produto} • Qtd: {item.quantidade}
+                                </p>
+                              </div>
+                              <p className="font-medium">
+                                {item.preco_total?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || '-'}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Valores */}
+                  <Card>
+                    <CardContent className="pt-6">
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Valor Total</span>
+                          <span className="font-bold text-lg">
+                            {selectedPedido.valor_total?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || '-'}
+                          </span>
+                        </div>
+                        {selectedPedido.percentual_comissao && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Comissão ({selectedPedido.percentual_comissao}%)</span>
+                            <span>
+                              {selectedPedido.valor_comissao?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) || '-'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Observações */}
+                  {selectedPedido.observacoes && (
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm">Observações</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-muted-foreground">{selectedPedido.observacoes}</p>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* ABA CONEXÕES COMERCIAIS */}
