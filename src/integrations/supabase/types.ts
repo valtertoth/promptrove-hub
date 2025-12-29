@@ -360,6 +360,7 @@ export type Database = {
           logo_url: string | null
           minimum_order: string | null
           nome: string
+          opcoes_pagamento: Json | null
           pais: string | null
           perfil_completo_percentual: number | null
           plano: Database["public"]["Enums"]["plano_tipo"] | null
@@ -385,6 +386,7 @@ export type Database = {
           logo_url?: string | null
           minimum_order?: string | null
           nome: string
+          opcoes_pagamento?: Json | null
           pais?: string | null
           perfil_completo_percentual?: number | null
           plano?: Database["public"]["Enums"]["plano_tipo"] | null
@@ -410,6 +412,7 @@ export type Database = {
           logo_url?: string | null
           minimum_order?: string | null
           nome?: string
+          opcoes_pagamento?: Json | null
           pais?: string | null
           perfil_completo_percentual?: number | null
           plano?: Database["public"]["Enums"]["plano_tipo"] | null
@@ -738,6 +741,7 @@ export type Database = {
           cliente_endereco: Json | null
           cliente_nome: string
           cliente_telefone: string | null
+          comprovante_pagamento_url: string | null
           connection_id: string
           created_at: string | null
           data_aprovacao: string | null
@@ -755,6 +759,7 @@ export type Database = {
           percentual_comissao: number | null
           status: string
           tipo_entrega: string | null
+          tipo_pagamento: string | null
           updated_at: string | null
           valor_comissao: number | null
           valor_total: number | null
@@ -764,6 +769,7 @@ export type Database = {
           cliente_endereco?: Json | null
           cliente_nome: string
           cliente_telefone?: string | null
+          comprovante_pagamento_url?: string | null
           connection_id: string
           created_at?: string | null
           data_aprovacao?: string | null
@@ -781,6 +787,7 @@ export type Database = {
           percentual_comissao?: number | null
           status?: string
           tipo_entrega?: string | null
+          tipo_pagamento?: string | null
           updated_at?: string | null
           valor_comissao?: number | null
           valor_total?: number | null
@@ -790,6 +797,7 @@ export type Database = {
           cliente_endereco?: Json | null
           cliente_nome?: string
           cliente_telefone?: string | null
+          comprovante_pagamento_url?: string | null
           connection_id?: string
           created_at?: string | null
           data_aprovacao?: string | null
@@ -807,6 +815,7 @@ export type Database = {
           percentual_comissao?: number | null
           status?: string
           tipo_entrega?: string | null
+          tipo_pagamento?: string | null
           updated_at?: string | null
           valor_comissao?: number | null
           valor_total?: number | null
