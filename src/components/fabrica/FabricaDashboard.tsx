@@ -87,6 +87,8 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import OrderWorkflow from "@/components/shared/OrderWorkflow";
+import { PaymentStepDialog } from "@/components/shared/PaymentStepDialog";
+import { getPaymentOptionById } from "@/components/shared/PaymentOptionsConfig";
 
 interface FabricaDashboardProps {
   userId: string;
@@ -109,6 +111,8 @@ interface Pedido {
   etapa_pagamento: string | null;
   etapa_fabricacao: string | null;
   etapa_expedicao: string | null;
+  tipo_pagamento: string | null;
+  comprovante_pagamento_url: string | null;
   observacoes: string | null;
   especificador?: {
     id: string;
@@ -226,6 +230,8 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
     emProducao: 0,
     valorTotal: 0,
   });
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [fabricaOpcoesPagamento, setFabricaOpcoesPagamento] = useState<string[]>([]);
   
   // Formulário Produto
   const [newProduct, setNewProduct] = useState({
@@ -270,12 +276,18 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
     // Primeiro buscar o fabrica_id do usuário
     const { data: fabricaData } = await supabase
       .from("fabrica")
-      .select("id")
+      .select("id, opcoes_pagamento")
       .eq("user_id", userId)
       .maybeSingle();
     
     if (fabricaData) {
       setFabricaId(fabricaData.id);
+      
+      // Carregar opções de pagamento da fábrica
+      const opcoes = Array.isArray(fabricaData.opcoes_pagamento) 
+        ? (fabricaData.opcoes_pagamento as string[])
+        : [];
+      setFabricaOpcoesPagamento(opcoes);
       
       const { data } = await supabase
         .from("produtos")
@@ -947,16 +959,44 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
                       <CardContent>
                         <OrderWorkflow pedido={selectedPedido} />
                         
+                        {/* Informações de pagamento */}
+                        {selectedPedido.tipo_pagamento && (
+                          <div className="mt-4 p-3 bg-white rounded-lg border">
+                            <p className="text-xs text-muted-foreground mb-1">Forma de Pagamento</p>
+                            <p className="font-medium flex items-center gap-2">
+                              <CreditCard className="h-4 w-4 text-muted-foreground" />
+                              {getPaymentOptionById(selectedPedido.tipo_pagamento)?.label || selectedPedido.tipo_pagamento}
+                            </p>
+                            {selectedPedido.comprovante_pagamento_url && (
+                              <a
+                                href={selectedPedido.comprovante_pagamento_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-primary hover:underline flex items-center gap-1 mt-2"
+                              >
+                                <FileText className="h-3 w-3" />
+                                Ver comprovante de pagamento
+                              </a>
+                            )}
+                          </div>
+                        )}
+                        
                         {/* Botões de ação para avançar etapas */}
                         <div className="flex flex-wrap gap-2 mt-6 pt-4 border-t">
-                          {selectedPedido.status === 'enviado' && !selectedPedido.etapa_pagamento && (
+                          {selectedPedido.status === 'enviado' && !selectedPedido.etapa_pagamento && selectedPedido.tipo_pagamento && (
                             <Button
-                              onClick={() => handleAvancarEtapa(selectedPedido.id, 'pagamento')}
+                              onClick={() => setPaymentDialogOpen(true)}
                               className="bg-emerald-600 hover:bg-emerald-700"
                             >
                               <CreditCard className="h-4 w-4 mr-2" />
                               Confirmar Pagamento
                             </Button>
+                          )}
+                          {selectedPedido.status === 'enviado' && !selectedPedido.tipo_pagamento && (
+                            <div className="text-sm text-amber-600 flex items-center gap-2 p-2 bg-amber-50 rounded-lg">
+                              <Clock className="h-4 w-4" />
+                              Aguardando especificador escolher forma de pagamento
+                            </div>
                           )}
                           {selectedPedido.etapa_pagamento && !selectedPedido.etapa_fabricacao && (
                             <Button
@@ -1087,6 +1127,32 @@ const FabricaDashboard = ({ userId }: FabricaDashboardProps) => {
               )}
             </DialogContent>
           </Dialog>
+
+          {/* Dialog de Pagamento */}
+          {selectedPedido && (
+            <PaymentStepDialog
+              open={paymentDialogOpen}
+              onOpenChange={setPaymentDialogOpen}
+              pedidoId={selectedPedido.id}
+              pedidoNumero={selectedPedido.numero_pedido}
+              availableOptions={fabricaOpcoesPagamento}
+              onSuccess={() => {
+                fetchPedidos();
+                // Recarregar pedido selecionado
+                if (selectedPedido) {
+                  supabase
+                    .from('pedidos')
+                    .select(`*, especificador:especificador_id (id, nome, email), itens:itens_pedido (id, quantidade, preco_unitario, preco_total, observacoes, produto:produto_id (id, nome, tipo_produto))`)
+                    .eq('id', selectedPedido.id)
+                    .maybeSingle()
+                    .then(({ data }) => { if (data) setSelectedPedido(data); });
+                }
+              }}
+              mode="confirm"
+              currentPaymentType={selectedPedido.tipo_pagamento}
+              currentProofUrl={selectedPedido.comprovante_pagamento_url}
+            />
+          )}
         </TabsContent>
 
         {/* ABA CONEXÕES COMERCIAIS */}
