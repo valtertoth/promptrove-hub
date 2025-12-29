@@ -745,6 +745,9 @@ export type Database = {
           data_envio: string | null
           data_previsao_entrega: string | null
           especificador_id: string
+          etapa_expedicao: string | null
+          etapa_fabricacao: string | null
+          etapa_pagamento: string | null
           fabrica_id: string
           id: string
           numero_pedido: string
@@ -768,6 +771,9 @@ export type Database = {
           data_envio?: string | null
           data_previsao_entrega?: string | null
           especificador_id: string
+          etapa_expedicao?: string | null
+          etapa_fabricacao?: string | null
+          etapa_pagamento?: string | null
           fabrica_id: string
           id?: string
           numero_pedido: string
@@ -791,6 +797,9 @@ export type Database = {
           data_envio?: string | null
           data_previsao_entrega?: string | null
           especificador_id?: string
+          etapa_expedicao?: string | null
+          etapa_fabricacao?: string | null
+          etapa_pagamento?: string | null
           fabrica_id?: string
           id?: string
           numero_pedido?: string

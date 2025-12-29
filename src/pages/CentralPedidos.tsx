@@ -49,8 +49,12 @@ import {
   FileText,
   Edit,
   MoreHorizontal,
+  CreditCard,
+  Hammer,
+  PackageCheck,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import OrderWorkflow from '@/components/shared/OrderWorkflow';
 import { ptBR } from 'date-fns/locale';
 import {
   DropdownMenu,
@@ -73,6 +77,9 @@ interface Pedido {
   data_envio: string | null;
   data_aprovacao: string | null;
   data_entrega: string | null;
+  etapa_pagamento: string | null;
+  etapa_fabricacao: string | null;
+  etapa_expedicao: string | null;
   observacoes: string | null;
   especificador?: {
     id: string;
@@ -274,7 +281,7 @@ const CentralPedidos = () => {
       if (newStatus === 'aprovado') {
         updateData.data_aprovacao = new Date().toISOString();
       } else if (newStatus === 'enviado_cliente') {
-        updateData.data_envio = new Date().toISOString();
+        updateData.etapa_expedicao = new Date().toISOString();
       } else if (newStatus === 'entregue') {
         updateData.data_entrega = new Date().toISOString();
       }
@@ -292,6 +299,80 @@ const CentralPedidos = () => {
       });
 
       fetchPedidos(userRole, userEntityId || undefined);
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Handler para avançar etapas do workflow
+  const handleAvancarEtapa = async (pedidoId: string, etapa: 'pagamento' | 'fabricacao' | 'expedicao' | 'entrega') => {
+    try {
+      const updateData: any = {};
+      let newStatus = '';
+      
+      switch (etapa) {
+        case 'pagamento':
+          updateData.etapa_pagamento = new Date().toISOString();
+          updateData.status = 'em_producao';
+          newStatus = 'Pagamento confirmado';
+          break;
+        case 'fabricacao':
+          updateData.etapa_fabricacao = new Date().toISOString();
+          newStatus = 'Fabricação iniciada';
+          break;
+        case 'expedicao':
+          updateData.etapa_expedicao = new Date().toISOString();
+          updateData.status = 'enviado_cliente';
+          newStatus = 'Produto expedido';
+          break;
+        case 'entrega':
+          updateData.data_entrega = new Date().toISOString();
+          updateData.status = 'entregue';
+          newStatus = 'Entrega confirmada';
+          break;
+      }
+
+      const { error } = await supabase
+        .from('pedidos')
+        .update(updateData)
+        .eq('id', pedidoId);
+
+      if (error) throw error;
+
+      toast({
+        title: newStatus,
+        description: 'Etapa atualizada com sucesso',
+        className: 'bg-emerald-600 text-white',
+      });
+
+      fetchPedidos(userRole, userEntityId || undefined);
+      
+      // Atualizar o pedido selecionado se o dialog estiver aberto
+      if (selectedPedido?.id === pedidoId) {
+        const { data } = await supabase
+          .from('pedidos')
+          .select(`
+            *,
+            especificador:especificador_id (id, nome, email),
+            fabrica:fabrica_id (id, nome),
+            itens:itens_pedido (
+              id,
+              quantidade,
+              preco_unitario,
+              preco_total,
+              observacoes,
+              produto:produto_id (id, nome, tipo_produto)
+            )
+          `)
+          .eq('id', pedidoId)
+          .maybeSingle();
+        
+        if (data) setSelectedPedido(data);
+      }
     } catch (error: any) {
       toast({
         title: 'Erro',
@@ -631,6 +712,60 @@ const CentralPedidos = () => {
                   Criado em {format(new Date(selectedPedido.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                 </span>
               </div>
+
+              {/* Workflow de etapas */}
+              {selectedPedido.status !== 'rascunho' && selectedPedido.status !== 'cancelado' && (
+                <Card className="bg-muted/30">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Acompanhamento do Pedido</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <OrderWorkflow pedido={selectedPedido} />
+                    
+                    {/* Botões de ação para fábrica */}
+                    {userRole === 'fabrica' && (
+                      <div className="flex flex-wrap gap-2 mt-6 pt-4 border-t">
+                        {selectedPedido.status === 'enviado' && !selectedPedido.etapa_pagamento && (
+                          <Button
+                            onClick={() => handleAvancarEtapa(selectedPedido.id, 'pagamento')}
+                            className="bg-emerald-600 hover:bg-emerald-700"
+                          >
+                            <CreditCard className="h-4 w-4 mr-2" />
+                            Confirmar Pagamento
+                          </Button>
+                        )}
+                        {selectedPedido.etapa_pagamento && !selectedPedido.etapa_fabricacao && (
+                          <Button
+                            onClick={() => handleAvancarEtapa(selectedPedido.id, 'fabricacao')}
+                            className="bg-purple-600 hover:bg-purple-700"
+                          >
+                            <Hammer className="h-4 w-4 mr-2" />
+                            Iniciar Fabricação
+                          </Button>
+                        )}
+                        {selectedPedido.etapa_fabricacao && !selectedPedido.etapa_expedicao && (
+                          <Button
+                            onClick={() => handleAvancarEtapa(selectedPedido.id, 'expedicao')}
+                            className="bg-cyan-600 hover:bg-cyan-700"
+                          >
+                            <Truck className="h-4 w-4 mr-2" />
+                            Confirmar Expedição
+                          </Button>
+                        )}
+                        {selectedPedido.etapa_expedicao && !selectedPedido.data_entrega && (
+                          <Button
+                            onClick={() => handleAvancarEtapa(selectedPedido.id, 'entrega')}
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            <PackageCheck className="h-4 w-4 mr-2" />
+                            Confirmar Entrega
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Informações do cliente */}
               <Card>
